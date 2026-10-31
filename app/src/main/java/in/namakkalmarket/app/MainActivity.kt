@@ -213,6 +213,7 @@ private fun HistoryChart(points: List<DayPrice>) {
     }
     val min = values.minOrNull() ?: 0.0
     val max = values.maxOrNull() ?: 1.0
+    val lineColor = MaterialTheme.colorScheme.primary
     Canvas(Modifier.fillMaxWidth().height(72.dp).padding(vertical = 8.dp)) {
         val span = (max - min).takeIf { it > 0.0 } ?: 1.0
         val stepX = size.width / (values.size - 1).coerceAtLeast(1)
@@ -220,8 +221,8 @@ private fun HistoryChart(points: List<DayPrice>) {
             Offset(i * stepX, size.height - ((v - min) / span).toFloat() * size.height)
         }
         for (i in 0 until coords.lastIndex) {
-            drawLine(MaterialTheme.colorScheme.primary, coords[i], coords[i + 1], strokeWidth = 4f, cap = StrokeCap.Round)
+            drawLine(lineColor, coords[i], coords[i + 1], strokeWidth = 4f, cap = StrokeCap.Round)
         }
-        coords.forEach { drawCircle(MaterialTheme.colorScheme.primary, radius = 4f, center = it) }
+        coords.forEach { drawCircle(lineColor, radius = 4f, center = it) }
     }
 }
