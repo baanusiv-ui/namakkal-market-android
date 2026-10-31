@@ -50,11 +50,7 @@ private fun MarketScreen() {
                 dateLabel = result.date.format(java.time.format.DateTimeFormatter.ofPattern("dd-MM-yyyy"))
                 status = if (result.fallback) "கடைசியாக கிடைத்த விலைத் தேதி" else "இன்றைய விலைத் தகவல்"
             } catch (e: Exception) {
-                status = when {
-                    BuildConfig.GOOGLE_SHEETS_API_KEY.isBlank() -> "Google Sheets API key அமைக்கப்படவில்லை."
-                    e.message.orEmpty().contains("403") || e.message.orEmpty().contains("404") -> "Sheet-க்கு public Viewer அனுமதி இன்னும் இல்லை."
-                    else -> "இணைப்பு பிழை: ${e.message ?: "மீண்டும் முயற்சிக்கவும்"}"
-                }
+                status = "Dropbox விலைத் தரவைப் பெற முடியவில்லை: ${e.message ?: "மீண்டும் முயற்சிக்கவும்"}"
                 rows = repo.cachedRows()
                 dateLabel = repo.cachedDate()
             } finally { loading = false }
