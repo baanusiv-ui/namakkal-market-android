@@ -12,12 +12,10 @@ android {
   targetSdk = 35
   versionCode = 1
   versionName = "1.0.0"
- }
- buildFeatures { compose = true; buildConfig = true }
- defaultConfig {
   buildConfigField("String", "SUPABASE_URL", "\"https://zvjizwzuejqboetjrwkl.supabase.co\"")
   buildConfigField("String", "SUPABASE_PUBLISHABLE_KEY", "\"sb_publishable_hg4ZDwD1sXFvCYGdRdnFEw_ro0ra4w7\"")
  }
+ buildFeatures { compose = true; buildConfig = true }
  compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
  kotlinOptions { jvmTarget = "17" }
 }
