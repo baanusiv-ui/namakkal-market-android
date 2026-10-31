@@ -50,7 +50,7 @@ private fun MarketScreen() {
                 dateLabel = result.date.format(java.time.format.DateTimeFormatter.ofPattern("dd-MM-yyyy"))
                 status = if (result.fallback) "கடைசியாக கிடைத்த விலைத் தேதி" else "இன்றைய விலைத் தகவல்"
             } catch (e: Exception) {
-                status = "Dropbox விலைத் தரவைப் பெற முடியவில்லை: ${e.message ?: "மீண்டும் முயற்சிக்கவும்"}"
+                status = "Supabase விலைத் தரவைப் பெற முடியவில்லை: ${e.message ?: "மீண்டும் முயற்சிக்கவும்"}"
                 rows = repo.cachedRows()
                 dateLabel = repo.cachedDate()
             } finally { loading = false }
@@ -100,7 +100,7 @@ private fun TodayList(rows: List<PriceRow>, date: String?, loading: Boolean) {
     }
     if (validRows.isEmpty()) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Text("விலைத் தகவல் தற்போது இல்லை.\nஇணைய இணைப்பு மற்றும் Sheet அனுமதியைச் சரிபார்க்கவும்.", textAlign = TextAlign.Center)
+            Text("விலைத் தகவல் தற்போது இல்லை.\nஇணைய இணைப்பு மற்றும் தரவு அனுமதியைச் சரிபார்க்கவும்.", textAlign = TextAlign.Center)
         }
         return
     }
