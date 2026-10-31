@@ -6,11 +6,9 @@ import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.json.JSONObject
-import java.net.URLEncoder
 import java.time.LocalDate
 import java.time.YearMonth
 import java.time.format.DateTimeFormatter
-import java.time.format.TextStyle
 import java.util.Locale
 
 data class DayPrice(val date: LocalDate, val low: Double?, val high: Double?)
@@ -28,32 +26,25 @@ data class SheetData(val rows: List<PriceRow>, val date: LocalDate, val fallback
 
 class SheetRepository(context: Context) {
     private val prefs = context.getSharedPreferences("market_cache", Context.MODE_PRIVATE)
-    private val client = OkHttpClient()
-    private val spreadsheetId = "1yOBoBrT2swBvPnnI5kzJysr71OgCY1vbSiG9qAmWw-8"
-    private val apiKey = BuildConfig.GOOGLE_SHEETS_API_KEY
+    private val client = OkHttpClient.Builder().followRedirects(true).followSslRedirects(true).build()
+
+    // Stable Dropbox shared links. Files are overwritten in place during sync, so these links remain usable.
+    private val monthFiles = mapOf(
+        YearMonth.of(2026, 10) to "https://www.dropbox.com/scl/fi/yhm8ikx53spv95k4nhv2w/October-2026.csv?rlkey=9253upg6n5r5qyyriusup742x&dl=1",
+        YearMonth.of(2026, 11) to "https://www.dropbox.com/scl/fi/1d2h8zu1ijdhjo77ec3ix/November-2026.csv?rlkey=kxt8guvzkcaqhmzoj1i336mn6&dl=1",
+        YearMonth.of(2026, 12) to "https://www.dropbox.com/scl/fi/zhdzd4sstf5rdf0fdzhkn/December-2026.csv?rlkey=iwirsu0r90cjpjtfjnqbuwpwf&dl=1"
+    )
 
     suspend fun load(): SheetData = withContext(Dispatchers.IO) {
-        require(apiKey.isNotBlank()) { "Missing Google Sheets API key" }
-        val metadata = getJson("https://sheets.googleapis.com/v4/spreadsheets/$spreadsheetId?fields=sheets.properties&key=$apiKey")
-        val tabs = metadata.optJSONArray("sheets") ?: error("No worksheet metadata")
-        val monthTabs = (0 until tabs.length()).mapNotNull { i ->
-            val title = tabs.getJSONObject(i).optJSONObject("properties")?.optString("title") ?: return@mapNotNull null
-            runCatching { YearMonth.parse(title, DateTimeFormatter.ofPattern("MMMM yyyy", Locale.ENGLISH)) }
-                .getOrNull()?.let { it to title }
-        }.sortedBy { it.first }
-
         val today = LocalDate.now()
-        val monthName = "${today.month.getDisplayName(TextStyle.FULL, Locale.ENGLISH)} ${today.year}"
-        val chosenTab = monthTabs.firstOrNull { it.second == monthName } ?: monthTabs.lastOrNull()
-            ?: error("No monthly worksheet found")
-        val range = URLEncoder.encode("' ${chosenTab.second}'!A:ZZ".replace("' ", "'"), "UTF-8")
-        val values = getJson("https://sheets.googleapis.com/v4/spreadsheets/$spreadsheetId/values/$range?valueRenderOption=UNFORMATTED_VALUE&key=$apiKey")
-            .optJSONArray("values") ?: error("Worksheet has no values")
-        val grid = (0 until values.length()).map { r ->
-            val row = values.optJSONArray(r)
-            if (row == null) emptyList() else (0 until row.length()).map { c -> row.opt(c)?.toString()?.trim().orEmpty() }
-        }
-        if (grid.isEmpty()) error("Worksheet is empty")
+        val currentMonth = YearMonth.from(today)
+        val chosen = monthFiles.entries.firstOrNull { it.key == currentMonth }
+            ?: monthFiles.entries.filter { !it.key.isAfter(currentMonth) }.maxByOrNull { it.key }
+            ?: monthFiles.entries.minByOrNull { it.key }
+            ?: error("No Dropbox month file configured")
+        val csv = getText(chosen.value)
+        val grid = parseCsv(csv)
+        if (grid.isEmpty()) error("Dropbox CSV is empty")
 
         val dateColumns = mutableMapOf<LocalDate, Pair<Int, Int>>()
         grid.first().forEachIndexed { column, header ->
@@ -67,25 +58,21 @@ class SheetRepository(context: Context) {
                 }
             }
         }
-        // Select the latest date that actually has at least one numeric quote.
-        // A date header alone is not proof that prices were entered for that day.
-        val selectedDate = dateColumns.keys
-            .filter { !it.isAfter(today) }
-            .sortedDescending()
+        val selectedDate = dateColumns.keys.filter { !it.isAfter(today) }.sortedDescending()
             .firstOrNull { date ->
                 val pair = dateColumns[date] ?: return@firstOrNull false
                 grid.drop(1).any { row ->
-                    val low = pair.first.takeIf { it >= 0 }?.let { row.getOrNull(it) }?.toDoubleOrNull()
-                    val high = pair.second.takeIf { it >= 0 }?.let { row.getOrNull(it) }?.toDoubleOrNull()
+                    val low = pair.first.takeIf { it >= 0 }?.let { row.getOrNull(it) }?.toPrice()
+                    val high = pair.second.takeIf { it >= 0 }?.let { row.getOrNull(it) }?.toPrice()
                     low != null || high != null
                 }
-            } ?: error("No dated price entries found")
+            } ?: error("No dated price entries found in Dropbox CSV")
 
         val parsedRows = grid.drop(1).mapNotNull { row ->
             if (row.size < 3 || row[0].isBlank()) return@mapNotNull null
             val history = dateColumns.entries.sortedBy { it.key }.mapNotNull { (date, pair) ->
-                val low = pair.first.takeIf { it >= 0 }?.let { row.getOrNull(it) }?.toDoubleOrNull()
-                val high = pair.second.takeIf { it >= 0 }?.let { row.getOrNull(it) }?.toDoubleOrNull()
+                val low = pair.first.takeIf { it >= 0 }?.let { row.getOrNull(it) }?.toPrice()
+                val high = pair.second.takeIf { it >= 0 }?.let { row.getOrNull(it) }?.toPrice()
                 if (low == null && high == null) null else DayPrice(date, low, high)
             }
             val current = history.firstOrNull { it.date == selectedDate }
@@ -103,6 +90,41 @@ class SheetRepository(context: Context) {
         }
         save(parsedRows, selectedDate)
         SheetData(parsedRows, selectedDate, selectedDate != today)
+    }
+
+    private fun String.toPrice(): Double? =
+        replace("₹", "").replace("Rs.", "", ignoreCase = true)
+            .replace(",", "").trim().takeIf { it.isNotEmpty() && it != "-" }?.toDoubleOrNull()
+
+    private fun parseCsv(input: String): List<List<String>> {
+        val rows = mutableListOf<List<String>>()
+        var row = mutableListOf<String>()
+        val cell = StringBuilder()
+        var quoted = false
+        var i = 0
+        while (i < input.length) {
+            val ch = input[i]
+            when {
+                ch == '"' && quoted && i + 1 < input.length && input[i + 1] == '"' -> {
+                    cell.append('"'); i++
+                }
+                ch == '"' -> quoted = !quoted
+                ch == ',' && !quoted -> { row.add(cell.toString()); cell.setLength(0) }
+                (ch == '\n' || ch == '\r') && !quoted -> {
+                    if (ch == '\r' && i + 1 < input.length && input[i + 1] == '\n') i++
+                    row.add(cell.toString()); cell.setLength(0)
+                    if (row.any { it.isNotBlank() }) rows.add(row)
+                    row = mutableListOf()
+                }
+                else -> cell.append(ch)
+            }
+            i++
+        }
+        if (cell.isNotEmpty() || row.isNotEmpty()) {
+            row.add(cell.toString())
+            if (row.any { it.isNotBlank() }) rows.add(row)
+        }
+        return rows
     }
 
     fun cachedDate(): String? = prefs.getString("date", null)
@@ -145,11 +167,10 @@ class SheetRepository(context: Context) {
     private fun format(value: Double): String =
         if (value % 1.0 == 0.0) value.toLong().toString() else "%.2f".format(Locale.US, value)
 
-    private fun getJson(url: String): JSONObject {
-        client.newCall(Request.Builder().url(url).build()).execute().use { response ->
-            val body = response.body?.string().orEmpty()
-            if (!response.isSuccessful) error("Google Sheets API HTTP ${response.code}: ${body.take(180)}")
-            JSONObject(body)
+    private fun getText(url: String): String {
+        client.newCall(Request.Builder().url(url).header("Cache-Control", "no-cache").build()).execute().use { response ->
+            if (!response.isSuccessful) error("Dropbox CSV download HTTP ${response.code}")
+            response.body?.string() ?: error("Dropbox returned an empty CSV")
         }
     }
 }
