@@ -1,0 +1,227 @@
+package in.namakkalmarket.app
+
+import android.content.Intent
+import android.os.Bundle
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.launch
+import java.time.LocalDate
+import java.util.Locale
+
+class MainActivity : ComponentActivity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setContent { MarketScreen() }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun MarketScreen() {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val repo = remember { SheetRepository(context) }
+    var rows by remember { mutableStateOf(repo.cachedRows()) }
+    var dateLabel by remember { mutableStateOf(repo.cachedDate()) }
+    var selectedTab by remember { mutableStateOf(0) }
+    var status by remember { mutableStateOf("விலைத் தகவலை ஏற்றுகிறது…") }
+    var loading by remember { mutableStateOf(false) }
+
+    fun refresh() {
+        scope.launch {
+            loading = true
+            try {
+                val result = repo.load()
+                rows = result.rows
+                dateLabel = result.date.format(java.time.format.DateTimeFormatter.ofPattern("dd-MM-yyyy"))
+                status = if (result.fallback) "கடைசியாக கிடைத்த விலைத் தேதி" else "இன்றைய விலைத் தகவல்"
+            } catch (e: Exception) {
+                status = when {
+                    BuildConfig.GOOGLE_SHEETS_API_KEY.isBlank() -> "Google Sheets API key அமைக்கப்படவில்லை."
+                    e.message.orEmpty().contains("403") || e.message.orEmpty().contains("404") -> "Sheet-க்கு public Viewer அனுமதி இன்னும் இல்லை."
+                    else -> "இணைப்பு பிழை: ${e.message ?: "மீண்டும் முயற்சிக்கவும்"}"
+                }
+                rows = repo.cachedRows()
+                dateLabel = repo.cachedDate()
+            } finally { loading = false }
+        }
+    }
+    LaunchedEffect(Unit) { refresh() }
+
+    MaterialTheme {
+        Scaffold(topBar = {
+            TopAppBar(
+                title = { Column {
+                    Text("நாமக்கல் உழவர் சந்தை", fontWeight = FontWeight.Bold)
+                    Text("NAMAKKAL MARKET", style = MaterialTheme.typography.labelSmall)
+                } },
+                actions = { TextButton(onClick = { refresh() }, enabled = !loading) { Text("புதுப்பி") } }
+            )
+        }) { padding ->
+            Column(Modifier.fillMaxSize().padding(padding).padding(horizontal = 14.dp)) {
+                Card(Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(12.dp)) {
+                        Text(dateLabel ?: "விலை விவரம்", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        Text(status, style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+                TabRow(selectedTabIndex = selectedTab) {
+                    listOf("இன்று", "வாரம்", "மாதம்").forEachIndexed { index, label ->
+                        Tab(selectedTab == index, { selectedTab = index }, text = { Text(label) })
+                    }
+                }
+                when (selectedTab) {
+                    0 -> TodayList(rows, dateLabel, loading)
+                    1 -> HistoryList(rows, weekly = true)
+                    else -> HistoryList(rows, weekly = false)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun TodayList(rows: List<PriceRow>, date: String?, loading: Boolean) {
+    val context = LocalContext.current
+    val validRows = rows.filter { it.low != null || it.high != null }
+    if (loading && rows.isEmpty()) {
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+        return
+    }
+    if (validRows.isEmpty()) {
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Text("விலைத் தகவல் தற்போது இல்லை.\nஇணைய இணைப்பு மற்றும் Sheet அனுமதியைச் சரிபார்க்கவும்.", textAlign = TextAlign.Center)
+        }
+        return
+    }
+    Column(Modifier.fillMaxSize()) {
+        Row(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
+            Text("காய்கறி", Modifier.weight(1f), fontWeight = FontWeight.Bold)
+            Text("குறைந்த", Modifier.weight(.55f), textAlign = TextAlign.End, fontWeight = FontWeight.Bold)
+            Text("அதிக", Modifier.weight(.55f), textAlign = TextAlign.End, fontWeight = FontWeight.Bold)
+            Text("மாற்றம்", Modifier.width(58.dp), textAlign = TextAlign.End, fontWeight = FontWeight.Bold)
+        }
+        HorizontalDivider()
+        LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(bottom = 10.dp)) {
+            items(validRows) { row ->
+                Row(Modifier.fillMaxWidth().padding(vertical = 11.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text(row.tamil, fontWeight = FontWeight.SemiBold)
+                        Text(row.unit, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    Text(row.low ?: "—", Modifier.weight(.55f), textAlign = TextAlign.End)
+                    Text(row.high ?: "—", Modifier.weight(.55f), textAlign = TextAlign.End)
+                    Text(changeArrow(row), Modifier.width(58.dp), textAlign = TextAlign.End,
+                        color = arrowColor(row))
+                }
+                HorizontalDivider()
+            }
+        }
+        val share = remember(validRows, date) {
+            buildString {
+                append("நாமக்கல் உழவர் சந்தை விலை — ${date ?: ""}\n")
+                validRows.forEach { append("${it.tamil}: ${it.low ?: "—"} - ${it.high ?: "—"} ${it.unit} ${changeArrow(it)}\n") }
+            }
+        }
+        OutlinedButton(onClick = {
+            val intent = Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, share) }
+            context.startActivity(Intent.createChooser(intent, "விலைப்பட்டியலைப் பகிரவும்"))
+        }, Modifier.fillMaxWidth()) { Text("WhatsApp / பகிர்வு") }
+    }
+}
+
+private fun changeArrow(row: PriceRow): String {
+    val now = midpoint(row.low, row.high)
+    val before = midpoint(row.previousLow, row.previousHigh)
+    if (now == null || before == null) return "—"
+    return when { now > before -> "↑"; now < before -> "↓"; else -> "→" }
+}
+private fun arrowColor(row: PriceRow): androidx.compose.ui.graphics.Color {
+    val now = midpoint(row.low, row.high)
+    val before = midpoint(row.previousLow, row.previousHigh)
+    return when {
+        now == null || before == null || now == before -> androidx.compose.ui.graphics.Color.Gray
+        now > before -> androidx.compose.ui.graphics.Color(0xFFB3261E)
+        else -> androidx.compose.ui.graphics.Color(0xFF16834A)
+    }
+}
+private fun midpoint(low: String?, high: String?): Double? {
+    val l = low?.toDoubleOrNull()
+    val h = high?.toDoubleOrNull()
+    return if (l != null && h != null) (l + h) / 2.0 else null
+}
+
+@Composable
+private fun HistoryList(rows: List<PriceRow>, weekly: Boolean) {
+    val today = LocalDate.now()
+    val cutoff = if (weekly) today.minusDays(6) else today.withDayOfMonth(1)
+    val title = if (weekly) "கடந்த 7 நாட்கள்" else "இந்த மாதம்"
+    val itemsWithHistory = rows.mapNotNull { row ->
+        val points = row.history.filter { !it.date.isBefore(cutoff) && !it.date.isAfter(today) }
+        if (points.isEmpty()) null else row to points
+    }
+    Column(Modifier.fillMaxSize()) {
+        Text(title, Modifier.padding(vertical = 10.dp), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        if (itemsWithHistory.isEmpty()) {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Text("இந்த காலப்பகுதிக்கான விலை வரலாறு இன்னும் இல்லை.", textAlign = TextAlign.Center)
+            }
+        } else {
+            LazyColumn(contentPadding = PaddingValues(bottom = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                items(itemsWithHistory) { (row, points) ->
+                    Card(Modifier.fillMaxWidth()) {
+                        Column(Modifier.padding(12.dp)) {
+                            Text(row.tamil, fontWeight = FontWeight.SemiBold)
+                            Text(row.unit, style = MaterialTheme.typography.labelSmall)
+                            HistoryChart(points)
+                            points.takeLast(7).forEach { p ->
+                                Text("${p.date.dayOfMonth}/${p.date.monthValue}: ${p.low?.let(::shortPrice) ?: "—"} – ${p.high?.let(::shortPrice) ?: "—"}",
+                                    style = MaterialTheme.typography.bodySmall)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+private fun shortPrice(value: Double): String = if (value % 1.0 == 0.0) value.toLong().toString() else "%.1f".format(Locale.US, value)
+
+@Composable
+private fun HistoryChart(points: List<DayPrice>) {
+    val values = points.mapNotNull { p ->
+        val lo = p.low; val hi = p.high
+        if (lo != null && hi != null) (lo + hi) / 2.0 else lo ?: hi
+    }
+    if (values.size < 2) {
+        Text("வரைபடத்திற்கு குறைந்தது 2 நாட்கள் விலை தேவை.", style = MaterialTheme.typography.labelSmall)
+        return
+    }
+    val min = values.minOrNull() ?: 0.0
+    val max = values.maxOrNull() ?: 1.0
+    Canvas(Modifier.fillMaxWidth().height(72.dp).padding(vertical = 8.dp)) {
+        val span = (max - min).takeIf { it > 0.0 } ?: 1.0
+        val stepX = size.width / (values.size - 1).coerceAtLeast(1)
+        val coords = values.mapIndexed { i, v ->
+            Offset(i * stepX, size.height - ((v - min) / span).toFloat() * size.height)
+        }
+        for (i in 0 until coords.lastIndex) {
+            drawLine(MaterialTheme.colorScheme.primary, coords[i], coords[i + 1], strokeWidth = 4f, cap = StrokeCap.Round)
+        }
+        coords.forEach { drawCircle(MaterialTheme.colorScheme.primary, radius = 4f, center = it) }
+    }
+}
