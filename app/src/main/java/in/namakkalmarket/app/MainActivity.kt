@@ -1,4 +1,4 @@
-package in.namakkalmarket.app
+package com.namakkalmarket.app
 
 import android.content.Intent
 import android.os.Bundle
