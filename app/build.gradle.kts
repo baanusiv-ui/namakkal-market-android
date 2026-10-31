@@ -4,10 +4,10 @@ plugins {
  id("org.jetbrains.kotlin.plugin.compose")
 }
 android {
- namespace = "in.namakkalmarket.app"
+ namespace = "com.namakkalmarket.app"
  compileSdk = 35
  defaultConfig {
-  applicationId = "in.namakkalmarket.app"
+  applicationId = "com.namakkalmarket.app"
   minSdk = 24
   targetSdk = 35
   versionCode = 1
