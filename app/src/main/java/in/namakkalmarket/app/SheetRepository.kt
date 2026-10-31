@@ -5,9 +5,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import org.json.JSONArray
 import org.json.JSONObject
 import java.time.LocalDate
-import java.time.YearMonth
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
@@ -28,104 +28,80 @@ class SheetRepository(context: Context) {
     private val prefs = context.getSharedPreferences("market_cache", Context.MODE_PRIVATE)
     private val client = OkHttpClient.Builder().followRedirects(true).followSslRedirects(true).build()
 
-    // Stable Dropbox shared links. Files are overwritten in place during sync, so these links remain usable.
-    private val monthFiles = mapOf(
-        YearMonth.of(2026, 10) to "https://www.dropbox.com/scl/fi/yhm8ikx53spv95k4nhv2w/October-2026.csv?rlkey=9253upg6n5r5qyyriusup742x&dl=1",
-        YearMonth.of(2026, 11) to "https://www.dropbox.com/scl/fi/1d2h8zu1ijdhjo77ec3ix/November-2026.csv?rlkey=kxt8guvzkcaqhmzoj1i336mn6&dl=1",
-        YearMonth.of(2026, 12) to "https://www.dropbox.com/scl/fi/zhdzd4sstf5rdf0fdzhkn/December-2026.csv?rlkey=iwirsu0r90cjpjtfjnqbuwpwf&dl=1"
-    )
-
     suspend fun load(): SheetData = withContext(Dispatchers.IO) {
         val today = LocalDate.now()
-        val currentMonth = YearMonth.from(today)
-        val chosen = monthFiles.entries.firstOrNull { it.key == currentMonth }
-            ?: monthFiles.entries.filter { !it.key.isAfter(currentMonth) }.maxByOrNull { it.key }
-            ?: monthFiles.entries.minByOrNull { it.key }
-            ?: error("No Dropbox month file configured")
-        val csv = getText(chosen.value)
-        val grid = parseCsv(csv)
-        if (grid.isEmpty()) error("Dropbox CSV is empty")
+        val records = mutableListOf<JSONObject>()
+        var offset = 0
+        val pageSize = 1000
 
-        val dateColumns = mutableMapOf<LocalDate, Pair<Int, Int>>()
-        grid.first().forEachIndexed { column, header ->
-            val match = Regex("""(\d{4}-\d{2}-\d{2}).*\((Low|High)\)""", RegexOption.IGNORE_CASE).find(header)
-            if (match != null) {
-                val date = runCatching { LocalDate.parse(match.groupValues[1]) }.getOrNull()
-                if (date != null) {
-                    val old = dateColumns[date] ?: (-1 to -1)
-                    dateColumns[date] = if (match.groupValues[2].equals("Low", true))
-                        column to old.second else old.first to column
-                }
+        // Read-only public customer prices from Supabase. The publishable key is safe to embed in a client.
+        while (true) {
+            val request = Request.Builder()
+                .url(
+                    BuildConfig.SUPABASE_URL.trimEnd('/') +
+                        "/rest/v1/market_prices?select=market_date,tamil_name,english_name,unit,low_price,high_price" +
+                        "&order=market_date.asc,tamil_name.asc,english_name.asc"
+                )
+                .header("apikey", BuildConfig.SUPABASE_PUBLISHABLE_KEY)
+                .header("Range-Unit", "items")
+                .header("Range", "$offset-${offset + pageSize - 1}")
+                .header("Cache-Control", "no-cache")
+                .build()
+
+            val page = client.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) error("Supabase price API HTTP ${response.code}")
+                JSONArray(response.body?.string() ?: "[]")
             }
+            for (i in 0 until page.length()) records.add(page.getJSONObject(i))
+            if (page.length() < pageSize) break
+            offset += page.length()
         }
-        val selectedDate = dateColumns.keys.filter { !it.isAfter(today) }.sortedDescending()
-            .firstOrNull { date ->
-                val pair = dateColumns[date] ?: return@firstOrNull false
-                grid.drop(1).any { row ->
-                    val low = pair.first.takeIf { it >= 0 }?.let { row.getOrNull(it) }?.toPrice()
-                    val high = pair.second.takeIf { it >= 0 }?.let { row.getOrNull(it) }?.toPrice()
-                    low != null || high != null
-                }
-            } ?: error("No dated price entries found in Dropbox CSV")
 
-        val parsedRows = grid.drop(1).mapNotNull { row ->
-            if (row.size < 3 || row[0].isBlank()) return@mapNotNull null
-            val history = dateColumns.entries.sortedBy { it.key }.mapNotNull { (date, pair) ->
-                val low = pair.first.takeIf { it >= 0 }?.let { row.getOrNull(it) }?.toPrice()
-                val high = pair.second.takeIf { it >= 0 }?.let { row.getOrNull(it) }?.toPrice()
-                if (low == null && high == null) null else DayPrice(date, low, high)
-            }
+        val grouped = linkedMapOf<Pair<String, String>, MutableList<DayPrice>>()
+        val metadata = linkedMapOf<Pair<String, String>, Triple<String, String, String>>()
+        records.forEach { item ->
+            val date = runCatching { LocalDate.parse(item.getString("market_date")) }.getOrNull()
+                ?: return@forEach
+            if (date.isAfter(today)) return@forEach
+            val tamil = item.optString("tamil_name").trim()
+            if (tamil.isEmpty()) return@forEach
+            val english = item.optString("english_name").trim()
+            val unit = item.optString("unit").trim()
+            val low = item.optNullableDouble("low_price")
+            val high = item.optNullableDouble("high_price")
+            if (low == null && high == null) return@forEach
+
+            val key = tamil to english
+            grouped.getOrPut(key) { mutableListOf() }.add(DayPrice(date, low, high))
+            metadata[key] = Triple(tamil, english, unit)
+        }
+
+        val selectedDate = grouped.values.flatten().map { it.date }.maxOrNull()
+            ?: error("Supabase has no dated market prices yet")
+
+        val parsedRows = grouped.entries.map { (key, historyValues) ->
+            val history = historyValues.distinctBy { it.date }.sortedBy { it.date }
             val current = history.firstOrNull { it.date == selectedDate }
             val previous = history.filter { it.date.isBefore(selectedDate) }.maxByOrNull { it.date }
+            val meta = metadata.getValue(key)
             PriceRow(
-                tamil = row[0],
-                english = row.getOrNull(1).orEmpty(),
-                unit = row.getOrNull(2).orEmpty(),
+                tamil = meta.first,
+                english = meta.second,
+                unit = meta.third,
                 low = current?.low?.let(::format),
                 high = current?.high?.let(::format),
                 previousLow = previous?.low?.let(::format),
                 previousHigh = previous?.high?.let(::format),
                 history = history
             )
-        }
+        }.sortedBy { it.tamil }
+
         save(parsedRows, selectedDate)
         SheetData(parsedRows, selectedDate, selectedDate != today)
     }
 
-    private fun String.toPrice(): Double? =
-        replace("₹", "").replace("Rs.", "", ignoreCase = true)
-            .replace(",", "").trim().takeIf { it.isNotEmpty() && it != "-" }?.toDoubleOrNull()
-
-    private fun parseCsv(input: String): List<List<String>> {
-        val rows = mutableListOf<List<String>>()
-        var row = mutableListOf<String>()
-        val cell = StringBuilder()
-        var quoted = false
-        var i = 0
-        while (i < input.length) {
-            val ch = input[i]
-            when {
-                ch == '"' && quoted && i + 1 < input.length && input[i + 1] == '"' -> {
-                    cell.append('"'); i++
-                }
-                ch == '"' -> quoted = !quoted
-                ch == ',' && !quoted -> { row.add(cell.toString()); cell.setLength(0) }
-                (ch == '\n' || ch == '\r') && !quoted -> {
-                    if (ch == '\r' && i + 1 < input.length && input[i + 1] == '\n') i++
-                    row.add(cell.toString()); cell.setLength(0)
-                    if (row.any { it.isNotBlank() }) rows.add(row)
-                    row = mutableListOf()
-                }
-                else -> cell.append(ch)
-            }
-            i++
-        }
-        if (cell.isNotEmpty() || row.isNotEmpty()) {
-            row.add(cell.toString())
-            if (row.any { it.isNotBlank() }) rows.add(row)
-        }
-        return rows
-    }
+    private fun JSONObject.optNullableDouble(name: String): Double? =
+        if (isNull(name)) null else optDouble(name).takeIf { it.isFinite() }
 
     fun cachedDate(): String? = prefs.getString("date", null)
 
@@ -161,16 +137,6 @@ class SheetRepository(context: Context) {
     private fun JSONObject.optNullable(name: String): String? =
         if (isNull(name)) null else optString(name).takeIf { it.isNotBlank() }
 
-    private fun JSONObject.optNullableDouble(name: String): Double? =
-        if (isNull(name)) null else optDouble(name).takeIf { it.isFinite() }
-
     private fun format(value: Double): String =
         if (value % 1.0 == 0.0) value.toLong().toString() else "%.2f".format(Locale.US, value)
-
-    private fun getText(url: String): String {
-        client.newCall(Request.Builder().url(url).header("Cache-Control", "no-cache").build()).execute().use { response ->
-            if (!response.isSuccessful) error("Dropbox CSV download HTTP ${response.code}")
-            response.body?.string() ?: error("Dropbox returned an empty CSV")
-        }
-    }
 }
