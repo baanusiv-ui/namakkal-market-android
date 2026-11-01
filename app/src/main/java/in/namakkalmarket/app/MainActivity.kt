@@ -172,28 +172,45 @@ private fun MarketScreen() {
                 }
                 val overallTrend = trendValues.takeIf { it.isNotEmpty() }?.average()
                 Card(Modifier.fillMaxWidth()) {
-                    Row(
-                        Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 9.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Column(Modifier.weight(1f)) {
-                            Text(dateLabel ?: "விலை விவரம்", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                            Text(status, style = MaterialTheme.typography.bodySmall)
-                        }
-                        if (overallTrend != null) {
-                            Surface(
-                                color = if (overallTrend >= 0) androidx.compose.ui.graphics.Color(0xFFE5F5EC) else androidx.compose.ui.graphics.Color(0xFFFCE9E8),
-                                shape = MaterialTheme.shapes.large
-                            ) {
-                                Text(
-                                    (if (overallTrend >= 0) "▲ " else "▼ ") + "%.2f%%".format(Locale.US, kotlin.math.abs(overallTrend)),
-                                    Modifier.padding(horizontal = 11.dp, vertical = 7.dp),
-                                    color = if (overallTrend >= 0) androidx.compose.ui.graphics.Color(0xFF16834A) else androidx.compose.ui.graphics.Color(0xFFB3261E),
-                                    fontWeight = FontWeight.Bold
-                                )
+                    Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp)) {
+                        Text(
+                            "நாமக்கல் உழவர் சந்தை",
+                            style = MaterialTheme.typography.headlineSmall,
+                            fontWeight = FontWeight.ExtraBold,
+                            maxLines = 1
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        Row(
+                            Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                dateLabel ?: "விலை விவரம்",
+                                style = MaterialTheme.typography.headlineMedium,
+                                fontWeight = FontWeight.ExtraBold
+                            )
+                            if (overallTrend != null) {
+                                Surface(
+                                    color = if (overallTrend >= 0) androidx.compose.ui.graphics.Color(0xFFE5F5EC) else androidx.compose.ui.graphics.Color(0xFFFCE9E8),
+                                    shape = MaterialTheme.shapes.extraLarge
+                                ) {
+                                    Text(
+                                        (if (overallTrend >= 0) "▲ " else "▼ ") + "%.2f%%".format(Locale.US, kotlin.math.abs(overallTrend)),
+                                        Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+                                        color = if (overallTrend >= 0) androidx.compose.ui.graphics.Color(0xFF16834A) else androidx.compose.ui.graphics.Color(0xFFB3261E),
+                                        style = MaterialTheme.typography.titleLarge,
+                                        fontWeight = FontWeight.ExtraBold
+                                    )
+                                }
                             }
                         }
+                        Spacer(Modifier.height(3.dp))
+                        Text(
+                            "விலைத் தகவல்",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold
+                        )
                     }
                 }
                 WeatherAlertCard()
