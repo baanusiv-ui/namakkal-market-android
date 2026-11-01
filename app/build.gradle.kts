@@ -12,8 +12,8 @@ android {
   applicationId = "com.namakkalmarket.app"
   minSdk = 24
   targetSdk = 35
-  versionCode = 3
-  versionName = "1.0.2"
+  versionCode = 4
+  versionName = "1.0.3"
   buildConfigField("String", "SUPABASE_URL", "\"https://zvjizwzuejqboetjrwkl.supabase.co\"")
   buildConfigField("String", "SUPABASE_PUBLISHABLE_KEY", "\"sb_publishable_hg4ZDwD1sXFvCYGdRdnFEw_ro0ra4w7\"")
  }
