@@ -24,6 +24,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -232,7 +233,6 @@ private fun MarketScreen() {
 @Composable
 private fun TodayList(rows: List<PriceRow>, date: String?, loading: Boolean) {
     val context = LocalContext.current
-    var filter by remember { mutableStateOf("அனைத்தும்") }
     val validRows = rows.filter { it.low != null || it.high != null }
     val changedRows = validRows.mapNotNull { row ->
         val now = midpoint(row.low, row.high)
@@ -241,33 +241,12 @@ private fun TodayList(rows: List<PriceRow>, date: String?, loading: Boolean) {
     }
     val avgChange = changedRows.map { it.second }.takeIf { it.isNotEmpty() }?.average()
     val marketUp = avgChange != null && avgChange >= 0.0
-    val filteredRows = validRows.filter { row ->
-        val change = changedRows.firstOrNull { it.first == row }?.second
-        val matchesFilter = when (filter) {
-            "விலை உயர்வு" -> change != null && change > 0
-            "விலை குறைவு" -> change != null && change < 0
-            "இன்று" -> true
-            else -> true
-        }
-        matchesFilter
-    }
+    val filteredRows = validRows
     if (loading && rows.isEmpty()) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
         return
     }
     Column(Modifier.fillMaxSize()) {
-        Row(
-            Modifier.fillMaxWidth().padding(vertical = 8.dp),
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
-        ) {
-            listOf("அனைத்தும்", "இன்று", "விலை உயர்வு", "விலை குறைவு").forEach { label ->
-                FilterChip(
-                    selected = filter == label,
-                    onClick = { filter = label },
-                    label = { Text(label, maxLines = 1) }
-                )
-            }
-        }
         Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             Text("காய்கறி", Modifier.weight(1f), fontWeight = FontWeight.Bold)
             Text("இன்றைய விலை", Modifier.width(112.dp), textAlign = TextAlign.End, fontWeight = FontWeight.Bold)
@@ -296,12 +275,12 @@ private fun TodayList(rows: List<PriceRow>, date: String?, loading: Boolean) {
                             }
                         }
                         Column(Modifier.weight(1f).padding(start = 10.dp)) {
-                            Text(row.tamil, fontWeight = FontWeight.SemiBold)
-                            Text(row.english.ifBlank { row.unit }, style = MaterialTheme.typography.bodySmall,
+                            Text(row.tamil, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                            Text(row.english.ifBlank { row.unit }, fontSize = 11.sp,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                         Column(Modifier.width(112.dp), horizontalAlignment = Alignment.End) {
-                            Text("₹${row.low ?: "—"} – ${row.high ?: "—"}", fontWeight = FontWeight.Bold,
+                            Text("₹${row.low ?: "—"} – ${row.high ?: "—"}", fontSize = 14.sp, fontWeight = FontWeight.Bold,
                                 textAlign = TextAlign.End)
                             Text(row.unit, style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -317,6 +296,7 @@ private fun TodayList(rows: List<PriceRow>, date: String?, loading: Boolean) {
                                         else if (change < 0) androidx.compose.ui.graphics.Color(0xFFB3261E)
                                         else MaterialTheme.colorScheme.onSurfaceVariant,
                                     fontWeight = FontWeight.SemiBold,
+                                    fontSize = 12.sp,
                                     textAlign = TextAlign.End
                                 )
                             }
