@@ -139,38 +139,37 @@ private fun MarketScreen() {
 
     MaterialTheme {
         Scaffold(topBar = {
-            Column {
-            TopAppBar(
-                title = {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        AppLogo(Modifier.size(54.dp))
-                        Spacer(Modifier.width(8.dp))
-                        Column {
-                            Text("நாமக்கல் உழவர் சந்தை", fontSize = 19.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1)
-                        }
-                    }
-                },
-                actions = {
-                    TextButton(onClick = {
-                        val social = Intent(Intent.ACTION_VIEW, android.net.Uri.parse("https://www.facebook.com/ulavarsanthainamakkal"))
-                        context.startActivity(social)
-                    }) { Text("f", color = androidx.compose.ui.graphics.Color(0xFF1877F2), fontWeight = FontWeight.Bold) }
-                    TextButton(onClick = {
-                        val social = Intent(Intent.ACTION_VIEW, android.net.Uri.parse("https://www.instagram.com/namakkal_ulavar_santhai/"))
-                        context.startActivity(social)
-                    }) { Text("◎", color = androidx.compose.ui.graphics.Color(0xFFE1306C), fontWeight = FontWeight.Bold) }
-                    TextButton(onClick = {
-                        val social = Intent(Intent.ACTION_VIEW, android.net.Uri.parse("https://youtube.com/@ulavarsanthainkl"))
-                        context.startActivity(social)
-                    }) { Text("▶", color = androidx.compose.ui.graphics.Color(0xFFFF0033), fontWeight = FontWeight.Bold) }
-                    TextButton(onClick = { refresh() }, enabled = !loading) { Text("புதுப்பி") }
-                    TextButton(onClick = { (context as? Activity)?.finish() }) { Text("மூடு") }
+            Column(Modifier.fillMaxWidth()) {
+                Row(
+                    Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 5.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    AppLogo(Modifier.size(44.dp))
+                    Text(
+                        "நாமக்கல் உழவர் சந்தை",
+                        Modifier.weight(1f).padding(start = 7.dp),
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        maxLines = 1,
+                        softWrap = false
+                    )
+                    TextButton(
+                        onClick = { context.startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse("https://www.facebook.com/ulavarsanthainamakkal"))) },
+                        contentPadding = PaddingValues(horizontal = 2.dp, vertical = 0.dp)
+                    ) { Text("f", color = androidx.compose.ui.graphics.Color(0xFF1877F2), fontWeight = FontWeight.Bold, fontSize = 19.sp) }
+                    TextButton(
+                        onClick = { context.startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse("https://www.instagram.com/namakkal_ulavar_santhai/"))) },
+                        contentPadding = PaddingValues(horizontal = 2.dp, vertical = 0.dp)
+                    ) { Text("◎", color = androidx.compose.ui.graphics.Color(0xFFE1306C), fontWeight = FontWeight.Bold, fontSize = 18.sp) }
+                    TextButton(
+                        onClick = { context.startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse("https://youtube.com/@ulavarsanthainkl"))) },
+                        contentPadding = PaddingValues(horizontal = 2.dp, vertical = 0.dp)
+                    ) { Text("▶", color = androidx.compose.ui.graphics.Color(0xFFFF0033), fontWeight = FontWeight.Bold, fontSize = 18.sp) }
                 }
-            )
-            HorizontalDivider(
-                thickness = 1.dp,
-                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.65f)
-            )
+                HorizontalDivider(
+                    thickness = 1.dp,
+                    color = MaterialTheme.colorScheme.outline.copy(alpha = 0.65f)
+                )
             }
         }, bottomBar = {
             Surface(
@@ -312,28 +311,28 @@ private fun TodayList(rows: List<PriceRow>, date: String?, loading: Boolean) {
                 items(filteredRows) { row ->
                     val change = changedRows.firstOrNull { it.first == row }?.second
                     Row(
-                        Modifier.fillMaxWidth().padding(vertical = 13.dp),
+                        Modifier.fillMaxWidth().padding(vertical = 10.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Surface(
-                            modifier = Modifier.size(62.dp),
-                            shape = RoundedCornerShape(22.dp),
+                            modifier = Modifier.size(48.dp),
+                            shape = RoundedCornerShape(16.dp),
                             color = androidx.compose.ui.graphics.Color(0xFFF0E8FA)
                         ) {
                             Box(contentAlignment = Alignment.Center) {
-                                Text(vegetableEmoji(row.tamil), fontSize = 34.sp)
+                                Text(vegetableEmoji(row.tamil), fontSize = 27.sp)
                             }
                         }
-                        Column(Modifier.weight(1f).padding(start = 12.dp)) {
-                            Text(row.tamil, fontSize = 17.sp, fontWeight = FontWeight.Bold, maxLines = 1, softWrap = false)
+                        Column(Modifier.weight(1f).padding(start = 8.dp)) {
+                            Text(row.tamil, fontSize = 14.sp, fontWeight = FontWeight.Bold, maxLines = 1, softWrap = false)
                         }
-                        Column(Modifier.width(104.dp), horizontalAlignment = Alignment.End) {
-                            Text("₹${row.low ?: "—"} – ${row.high ?: "—"}", fontSize = 16.sp, fontWeight = FontWeight.Bold,
+                        Column(Modifier.width(94.dp), horizontalAlignment = Alignment.End) {
+                            Text("₹${row.low ?: "—"} – ${row.high ?: "—"}", fontSize = 14.sp, fontWeight = FontWeight.Bold,
                                 textAlign = TextAlign.End)
                             Text(row.unit, style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
-                        Column(Modifier.width(72.dp), horizontalAlignment = Alignment.End) {
+                        Column(Modifier.width(58.dp), horizontalAlignment = Alignment.End) {
                             if (change == null) {
                                 Text("—", color = MaterialTheme.colorScheme.onSurfaceVariant)
                             } else {
@@ -344,7 +343,7 @@ private fun TodayList(rows: List<PriceRow>, date: String?, loading: Boolean) {
                                         else if (change < 0) androidx.compose.ui.graphics.Color(0xFFB3261E)
                                         else MaterialTheme.colorScheme.onSurfaceVariant,
                                     fontWeight = FontWeight.SemiBold,
-                                    fontSize = 13.sp,
+                                    fontSize = 11.sp,
                                     textAlign = TextAlign.End
                                 )
                             }
