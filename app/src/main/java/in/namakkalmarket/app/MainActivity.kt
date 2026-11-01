@@ -10,6 +10,7 @@ import android.speech.tts.TextToSpeech
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.ui.draw.clip
@@ -23,6 +24,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -305,8 +308,18 @@ private fun TodayList(rows: List<PriceRow>, date: String?, loading: Boolean) {
                             shape = RoundedCornerShape(13.dp),
                             color = androidx.compose.ui.graphics.Color(0xFFF0E8FA)
                         ) {
+                            val photoRes = vegetableImageRes(row.tamil)
                             Box(contentAlignment = Alignment.Center) {
-                                Text(vegetableEmoji(row.tamil), fontSize = 22.sp)
+                                if (photoRes != null) {
+                                    Image(
+                                        painter = painterResource(photoRes),
+                                        contentDescription = row.tamil,
+                                        modifier = Modifier.fillMaxSize(),
+                                        contentScale = ContentScale.Crop
+                                    )
+                                } else {
+                                    Text(vegetableEmoji(row.tamil), fontSize = 22.sp)
+                                }
                             }
                         }
                         Column(Modifier.weight(1f).padding(start = 7.dp)) {
@@ -342,6 +355,15 @@ private fun TodayList(rows: List<PriceRow>, date: String?, loading: Boolean) {
     }
 }
 private fun formatPrice(value: Double): String = if (value % 1.0 == 0.0) value.toInt().toString() else value.toString()
+
+private fun vegetableImageRes(name: String): Int? = when {
+    name.contains("வாழை இலை") -> R.drawable.vegetable_banana_leaf
+    name.contains("தேங்காய்") || name.contains("தேங்கா") -> R.drawable.vegetable_coconut
+    name.contains("கொய்யா") -> R.drawable.vegetable_guava
+    name.contains("மலைவாழை") -> R.drawable.vegetable_hill_banana
+    name.contains("பச்சை வாழை") || name.contains("வாழைப்பழ") -> R.drawable.vegetable_raw_banana
+    else -> null
+}
 
 private fun vegetableEmoji(name: String): String = when {
     // Specific matches must come before broad family names.
