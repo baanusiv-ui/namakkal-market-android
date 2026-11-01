@@ -75,6 +75,8 @@ private fun MarketScreen() {
     var selectedTab by remember { mutableStateOf(0) }
     var status by remember { mutableStateOf("விலைத் தகவலை ஏற்றுகிறது…") }
     var loading by remember { mutableStateOf(false) }
+    var showRegistration by remember { mutableStateOf(false) }
+    var registrationStatus by remember { mutableStateOf<String?>(null) }
 
     fun refresh() {
         scope.launch {
@@ -124,6 +126,25 @@ private fun MarketScreen() {
                         Text(dateLabel ?: "விலை விவரம்", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                         Text(status, style = MaterialTheme.typography.bodySmall)
                     }
+                }
+                OutlinedButton(onClick = { showRegistration = true }, modifier = Modifier.fillMaxWidth()) {
+                    Text("மொபைல் எண்ணைப் பதிவு செய்யுங்கள்")
+                }
+                if (showRegistration) {
+                    MobileRegistrationDialog(
+                        onDismiss = { showRegistration = false },
+                        onSaved = { message ->
+                            showRegistration = false
+                            registrationStatus = message
+                        }
+                    )
+                }
+                registrationStatus?.let { message ->
+                    AlertDialog(
+                        onDismissRequest = { registrationStatus = null },
+                        confirmButton = { TextButton(onClick = { registrationStatus = null }) { Text("சரி") } },
+                        text = { Text(message) }
+                    )
                 }
                 TabRow(selectedTabIndex = selectedTab) {
                     listOf("இன்று", "வாரம்", "மாதம்").forEachIndexed { index, label ->
@@ -280,4 +301,61 @@ private fun HistoryChart(points: List<DayPrice>) {
         }
         coords.forEach { drawCircle(lineColor, radius = 4f, center = it) }
     }
+}
+
+
+@Composable
+private fun MobileRegistrationDialog(onDismiss: () -> Unit, onSaved: (String) -> Unit) {
+    val scope = rememberCoroutineScope()
+    var mobile by remember { mutableStateOf("") }
+    var consent by remember { mutableStateOf(false) }
+    var busy by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
+
+    AlertDialog(
+        onDismissRequest = { if (!busy) onDismiss() },
+        title = { Text("மொபைல் எண் பதிவு") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text("இன்றைய சந்தை விலை அறிவிப்புகளைப் பெற உங்கள் 10 இலக்க மொபைல் எண்ணை பதிவு செய்யுங்கள்.")
+                OutlinedTextField(
+                    value = mobile,
+                    onValueChange = { value -> mobile = value.filter { it.isDigit() }.take(10); error = null },
+                    label = { Text("மொபைல் எண்") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Checkbox(checked = consent, onCheckedChange = { consent = it })
+                    Text("எனது மொபைல் எண்ணை பதிவு செய்து சந்தை தகவல்களுக்கு தொடர்புகொள்ள ஒப்புக்கொள்கிறேன்.")
+                }
+                error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+            }
+        },
+        confirmButton = {
+            TextButton(enabled = !busy, onClick = {
+                if (!mobile.matches(Regex("^[6-9][0-9]{9}$"))) {
+                    error = "சரியான 10 இலக்க இந்திய மொபைல் எண்ணை உள்ளிடவும்."
+                } else if (!consent) {
+                    error = "தொடர்வதற்கு உங்கள் ஒப்புதல் தேவை."
+                } else {
+                    busy = true
+                    error = null
+                    scope.launch {
+                        try {
+                            RegistrationRepository().register(mobile)
+                            onSaved("உங்கள் மொபைல் எண் வெற்றிகரமாக பதிவு செய்யப்பட்டது.")
+                        } catch (e: Exception) {
+                            error = when {
+                                e.message?.contains("409") == true -> "இந்த மொபைல் எண் ஏற்கனவே பதிவு செய்யப்பட்டுள்ளது."
+                                else -> "பதிவு செய்ய முடியவில்லை. இணைய இணைப்பைச் சரிபார்த்து மீண்டும் முயற்சிக்கவும்."
+                            }
+                            busy = false
+                        }
+                    }
+                }
+            }) { Text(if (busy) "பதிவு செய்கிறது…" else "பதிவு") }
+        },
+        dismissButton = { TextButton(enabled = !busy, onClick = onDismiss) { Text("ரத்து") } }
+    )
 }
