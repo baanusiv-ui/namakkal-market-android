@@ -166,7 +166,6 @@ private fun MarketScreen() {
 @Composable
 private fun TodayList(rows: List<PriceRow>, date: String?, loading: Boolean) {
     val context = LocalContext.current
-    var search by remember { mutableStateOf("") }
     var filter by remember { mutableStateOf("அனைத்தும்") }
     val validRows = rows.filter { it.low != null || it.high != null }
     val changedRows = validRows.mapNotNull { row ->
@@ -177,8 +176,6 @@ private fun TodayList(rows: List<PriceRow>, date: String?, loading: Boolean) {
     val avgChange = changedRows.map { it.second }.takeIf { it.isNotEmpty() }?.average()
     val marketUp = avgChange != null && avgChange >= 0.0
     val filteredRows = validRows.filter { row ->
-        val matchesSearch = search.isBlank() || row.tamil.contains(search.trim(), true) ||
-            row.english.contains(search.trim(), true)
         val change = changedRows.firstOrNull { it.first == row }?.second
         val matchesFilter = when (filter) {
             "விலை உயர்வு" -> change != null && change > 0
@@ -186,21 +183,13 @@ private fun TodayList(rows: List<PriceRow>, date: String?, loading: Boolean) {
             "இன்று" -> true
             else -> true
         }
-        matchesSearch && matchesFilter
+        matchesFilter
     }
     if (loading && rows.isEmpty()) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
         return
     }
     Column(Modifier.fillMaxSize()) {
-        OutlinedTextField(
-            value = search,
-            onValueChange = { search = it },
-            modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-            placeholder = { Text("காய்கறியைத் தேடுங்கள் / Search") },
-            leadingIcon = { Text("⌕", style = MaterialTheme.typography.headlineSmall) },
-            singleLine = true
-        )
         Row(
             Modifier.fillMaxWidth().padding(vertical = 8.dp),
             horizontalArrangement = Arrangement.spacedBy(6.dp)
