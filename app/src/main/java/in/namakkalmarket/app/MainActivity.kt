@@ -424,7 +424,22 @@ private fun midpoint(low: String?, high: String?): Double? {
 
 @Composable
 private fun HistoryList(rows: List<PriceRow>, weekly: Boolean) {
-    val allHistory = rows.flatMap { it.history }
+    // Combine all brinjal varieties into one daily low-high range for history.
+    val brinjalRows = rows.filter { it.tamil.startsWith("கத்தரி") }
+    val mergedBrinjal = brinjalRows.firstOrNull()?.let { base ->
+        val combinedPoints = brinjalRows.flatMap { it.history }
+            .groupBy { it.date }
+            .mapNotNull { (_, dayRows) ->
+                val lows = dayRows.mapNotNull { it.low }
+                val highs = dayRows.mapNotNull { it.high }
+                if (lows.isEmpty() && highs.isEmpty()) null
+                else dayRows.first().copy(low = lows.minOrNull(), high = highs.maxOrNull())
+            }
+            .sortedBy { it.date }
+        base.copy(tamil = "கத்தரி", english = "", history = combinedPoints)
+    }
+    val historyRows = rows.filterNot { it.tamil.startsWith("கத்தரி") } + listOfNotNull(mergedBrinjal)
+    val allHistory = historyRows.flatMap { it.history }
     val latestAvailableDate = allHistory.maxOfOrNull { it.date }
     val availableMonths = allHistory.map { java.time.YearMonth.from(it.date) }.distinct().sortedDescending()
     var selectedMonth by remember(availableMonths) { mutableStateOf(availableMonths.firstOrNull()) }
@@ -435,7 +450,7 @@ private fun HistoryList(rows: List<PriceRow>, weekly: Boolean) {
         ?: "மாதம் தேர்வு"
     val title = if (weekly) "கிடைத்த கடைசி 7 நாட்கள்" else "மாத விலை வரலாறு"
 
-    val itemsWithHistory = rows.mapNotNull { row ->
+    val itemsWithHistory = historyRows.mapNotNull { row ->
         val points = row.history.filter { point ->
             if (weekly) {
                 cutoff != null && latestAvailableDate != null &&
