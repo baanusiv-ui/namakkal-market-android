@@ -123,10 +123,35 @@ private fun MarketScreen() {
             )
         }) { padding ->
             Column(Modifier.fillMaxSize().padding(padding).padding(horizontal = 14.dp)) {
+                val trendValues = rows.mapNotNull { row ->
+                    val now = midpoint(row.low, row.high)
+                    val before = midpoint(row.previousLow, row.previousHigh)
+                    if (now == null || before == null || before == 0.0) null else (now - before) / before * 100.0
+                }
+                val overallTrend = trendValues.takeIf { it.isNotEmpty() }?.average()
                 Card(Modifier.fillMaxWidth()) {
-                    Column(Modifier.padding(12.dp)) {
-                        Text(dateLabel ?: "விலை விவரம்", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                        Text(status, style = MaterialTheme.typography.bodySmall)
+                    Row(
+                        Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 9.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column(Modifier.weight(1f)) {
+                            Text(dateLabel ?: "விலை விவரம்", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                            Text(status, style = MaterialTheme.typography.bodySmall)
+                        }
+                        if (overallTrend != null) {
+                            Surface(
+                                color = if (overallTrend >= 0) androidx.compose.ui.graphics.Color(0xFFE5F5EC) else androidx.compose.ui.graphics.Color(0xFFFCE9E8),
+                                shape = MaterialTheme.shapes.large
+                            ) {
+                                Text(
+                                    (if (overallTrend >= 0) "▲ " else "▼ ") + "%.2f%%".format(Locale.US, kotlin.math.abs(overallTrend)),
+                                    Modifier.padding(horizontal = 11.dp, vertical = 7.dp),
+                                    color = if (overallTrend >= 0) androidx.compose.ui.graphics.Color(0xFF16834A) else androidx.compose.ui.graphics.Color(0xFFB3261E),
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
                     }
                 }
                 WeatherAlertCard()
@@ -200,41 +225,6 @@ private fun TodayList(rows: List<PriceRow>, date: String?, loading: Boolean) {
                     onClick = { filter = label },
                     label = { Text(label, maxLines = 1) }
                 )
-            }
-        }
-        Card(Modifier.fillMaxWidth().padding(bottom = 8.dp)) {
-            Row(
-                Modifier.fillMaxWidth().padding(14.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(Modifier.weight(1f)) {
-                    Text("சந்தை நிலவரம்", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                    Text("முந்தைய சந்தை நாளுடன் ஒப்பீடு", style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text(
-                        when {
-                            avgChange == null -> "மாற்றத்தை கணக்கிட போதிய தரவு இல்லை"
-                            marketUp -> "சந்தை விலை உயர்வு"
-                            else -> "சந்தை விலை குறைவு"
-                        },
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                }
-                if (avgChange != null) {
-                    Surface(
-                        color = if (marketUp) androidx.compose.ui.graphics.Color(0xFFE5F5EC) else androidx.compose.ui.graphics.Color(0xFFFCE9E8),
-                        shape = MaterialTheme.shapes.large
-                    ) {
-                        Text(
-                            (if (marketUp) "▲ " else "▼ ") + "%.2f%%".format(Locale.US, kotlin.math.abs(avgChange)),
-                            Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                            color = if (marketUp) androidx.compose.ui.graphics.Color(0xFF16834A) else androidx.compose.ui.graphics.Color(0xFFB3261E),
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                }
             }
         }
         Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
