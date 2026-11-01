@@ -38,6 +38,7 @@ class MainActivity : ComponentActivity() {
             requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 4102)
         }
         MarketPriceWatchWorker.schedule(this)
+        AppUpdateCheckWorker.schedule(this)
         welcomeTts = TextToSpeech(this) { result ->
             if (result == TextToSpeech.SUCCESS) {
                 val tamilResult = welcomeTts?.setLanguage(Locale("ta", "IN"))
