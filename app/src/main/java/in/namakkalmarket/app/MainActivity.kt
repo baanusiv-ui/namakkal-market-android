@@ -108,6 +108,10 @@ private fun MarketScreen() {
                         val social = Intent(Intent.ACTION_VIEW, android.net.Uri.parse("https://www.instagram.com/namakkal_ulavar_santhai/"))
                         context.startActivity(social)
                     }) { Text("📷") }
+                    TextButton(onClick = {
+                        val social = Intent(Intent.ACTION_VIEW, android.net.Uri.parse("https://youtube.com/@ulavarsanthainkl"))
+                        context.startActivity(social)
+                    }) { Text("▶") }
                     TextButton(onClick = { refresh() }, enabled = !loading) { Text("புதுப்பி") }
                     TextButton(onClick = { (context as? Activity)?.finish() }) { Text("மூடு") }
                 }
