@@ -141,30 +141,18 @@ private fun MarketScreen() {
         Scaffold(topBar = {
             Column(Modifier.fillMaxWidth()) {
                 Row(
-                    Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 5.dp),
+                    Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    AppLogo(Modifier.size(44.dp))
+                    AppLogo(Modifier.size(42.dp))
                     Text(
                         "நாமக்கல் உழவர் சந்தை",
-                        Modifier.weight(1f).padding(start = 7.dp),
-                        fontSize = 15.sp,
+                        Modifier.weight(1f).padding(start = 10.dp),
+                        fontSize = 17.sp,
                         fontWeight = FontWeight.ExtraBold,
                         maxLines = 1,
                         softWrap = false
                     )
-                    TextButton(
-                        onClick = { context.startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse("https://www.facebook.com/ulavarsanthainamakkal"))) },
-                        contentPadding = PaddingValues(horizontal = 2.dp, vertical = 0.dp)
-                    ) { Text("f", color = androidx.compose.ui.graphics.Color(0xFF1877F2), fontWeight = FontWeight.Bold, fontSize = 19.sp) }
-                    TextButton(
-                        onClick = { context.startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse("https://www.instagram.com/namakkal_ulavar_santhai/"))) },
-                        contentPadding = PaddingValues(horizontal = 2.dp, vertical = 0.dp)
-                    ) { Text("◎", color = androidx.compose.ui.graphics.Color(0xFFE1306C), fontWeight = FontWeight.Bold, fontSize = 18.sp) }
-                    TextButton(
-                        onClick = { context.startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse("https://youtube.com/@ulavarsanthainkl"))) },
-                        contentPadding = PaddingValues(horizontal = 2.dp, vertical = 0.dp)
-                    ) { Text("▶", color = androidx.compose.ui.graphics.Color(0xFFFF0033), fontWeight = FontWeight.Bold, fontSize = 18.sp) }
                 }
                 HorizontalDivider(
                     thickness = 1.dp,
@@ -173,25 +161,29 @@ private fun MarketScreen() {
             }
         }, bottomBar = {
             Surface(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 4.dp),
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 3.dp),
                 color = androidx.compose.ui.graphics.Color(0xFFF0E8FA),
-                shape = RoundedCornerShape(30.dp),
+                shape = RoundedCornerShape(22.dp),
                 tonalElevation = 2.dp
             ) {
-                Row(Modifier.fillMaxWidth().padding(3.dp)) {
-                    listOf("இன்று", "வாரம்", "மாதம்").forEachIndexed { index, label ->
+                Row(Modifier.fillMaxWidth().padding(2.dp)) {
+                    listOf("இன்று", "வாரம்", "மாதம்", "வெளியேறு").forEachIndexed { index, label ->
                         Column(
-                            Modifier.weight(1f).clip(RoundedCornerShape(26.dp))
-                                .background(if (selectedTab == index) androidx.compose.ui.graphics.Color(0xFF5634B4) else androidx.compose.ui.graphics.Color.Transparent)
-                                .clickable { selectedTab = index }
-                                .padding(vertical = 5.dp),
+                            Modifier.weight(1f).clip(RoundedCornerShape(18.dp))
+                                .background(if (index == selectedTab) androidx.compose.ui.graphics.Color(0xFF5634B4) else androidx.compose.ui.graphics.Color.Transparent)
+                                .clickable {
+                                    if (index == 3) (context as? android.app.Activity)?.finish()
+                                    else selectedTab = index
+                                }
+                                .padding(vertical = 3.dp),
                             horizontalAlignment = Alignment.CenterHorizontally,
                             verticalArrangement = Arrangement.Center
                         ) {
-                            Text(listOf("⌂", "▦", "▣")[index], fontSize = 16.sp,
-                                color = if (selectedTab == index) androidx.compose.ui.graphics.Color.White else androidx.compose.ui.graphics.Color(0xFF624BA4))
-                            Text(label, fontSize = 13.sp, fontWeight = FontWeight.Bold,
-                                color = if (selectedTab == index) androidx.compose.ui.graphics.Color.White else androidx.compose.ui.graphics.Color(0xFF624BA4))
+                            Text(listOf("⌂", "▦", "▣", "↪")[index], fontSize = 14.sp,
+                                color = if (index == selectedTab) androidx.compose.ui.graphics.Color.White else androidx.compose.ui.graphics.Color(0xFF624BA4))
+                            Text(label, fontSize = 11.sp, fontWeight = FontWeight.Bold,
+                                color = if (index == selectedTab) androidx.compose.ui.graphics.Color.White else androidx.compose.ui.graphics.Color(0xFF624BA4),
+                                maxLines = 1)
                         }
                     }
                 }
