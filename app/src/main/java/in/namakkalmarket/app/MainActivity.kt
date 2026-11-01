@@ -77,6 +77,8 @@ private fun MarketScreen() {
     var loading by remember { mutableStateOf(false) }
     var showRegistration by remember { mutableStateOf(false) }
     var registrationStatus by remember { mutableStateOf<String?>(null) }
+    val registrationPrefs = remember { context.getSharedPreferences("namakkal_market_user", android.content.Context.MODE_PRIVATE) }
+    LaunchedEffect(Unit) { if (!registrationPrefs.getBoolean("mobile_registered", false)) showRegistration = true }
 
     fun refresh() {
         scope.launch {
@@ -106,15 +108,15 @@ private fun MarketScreen() {
                     TextButton(onClick = {
                         val social = Intent(Intent.ACTION_VIEW, android.net.Uri.parse("https://www.facebook.com/ulavarsanthainamakkal"))
                         context.startActivity(social)
-                    }) { Text("f") }
+                    }) { Text("f", color = androidx.compose.ui.graphics.Color(0xFF1877F2), fontWeight = FontWeight.Bold) }
                     TextButton(onClick = {
                         val social = Intent(Intent.ACTION_VIEW, android.net.Uri.parse("https://www.instagram.com/namakkal_ulavar_santhai/"))
                         context.startActivity(social)
-                    }) { Text("📷") }
+                    }) { Text("◎", color = androidx.compose.ui.graphics.Color(0xFFE1306C), fontWeight = FontWeight.Bold) }
                     TextButton(onClick = {
                         val social = Intent(Intent.ACTION_VIEW, android.net.Uri.parse("https://youtube.com/@ulavarsanthainkl"))
                         context.startActivity(social)
-                    }) { Text("▶") }
+                    }) { Text("▶", color = androidx.compose.ui.graphics.Color(0xFFFF0033), fontWeight = FontWeight.Bold) }
                     TextButton(onClick = { refresh() }, enabled = !loading) { Text("புதுப்பி") }
                     TextButton(onClick = { (context as? Activity)?.finish() }) { Text("மூடு") }
                 }
@@ -127,14 +129,13 @@ private fun MarketScreen() {
                         Text(status, style = MaterialTheme.typography.bodySmall)
                     }
                 }
-                OutlinedButton(onClick = { showRegistration = true }, modifier = Modifier.fillMaxWidth()) {
-                    Text("மொபைல் எண்ணைப் பதிவு செய்யுங்கள்")
-                }
+                WeatherAlertCard()
                 if (showRegistration) {
                     MobileRegistrationDialog(
                         onDismiss = { showRegistration = false },
                         onSaved = { message ->
                             showRegistration = false
+                            registrationPrefs.edit().putBoolean("mobile_registered", true).apply()
                             registrationStatus = message
                         }
                     )
