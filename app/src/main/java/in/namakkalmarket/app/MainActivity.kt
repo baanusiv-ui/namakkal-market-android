@@ -163,6 +163,14 @@ private fun MarketScreen() {
                     TextButton(onClick = { (context as? Activity)?.finish() }) { Text("மூடு") }
                 }
             )
+        }, bottomBar = {
+            Surface(tonalElevation = 3.dp) {
+                TabRow(selectedTabIndex = selectedTab) {
+                    listOf("இன்று", "வாரம்", "மாதம்").forEachIndexed { index, label ->
+                        Tab(selectedTab == index, { selectedTab = index }, text = { Text(label) })
+                    }
+                }
+            }
         }) { padding ->
             Column(Modifier.fillMaxSize().padding(padding).padding(horizontal = 14.dp)) {
                 val trendValues = rows.mapNotNull { row ->
@@ -172,14 +180,13 @@ private fun MarketScreen() {
                 }
                 val overallTrend = trendValues.takeIf { it.isNotEmpty() }?.average()
                 Card(Modifier.fillMaxWidth()) {
-                    Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp)) {
+                    Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 7.dp)) {
                         Text(
                             "நாமக்கல் உழவர் சந்தை",
-                            style = MaterialTheme.typography.headlineSmall,
+                            fontSize = 18.sp,
                             fontWeight = FontWeight.ExtraBold,
                             maxLines = 1
                         )
-                        Spacer(Modifier.height(8.dp))
                         Row(
                             Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically,
@@ -187,7 +194,7 @@ private fun MarketScreen() {
                         ) {
                             Text(
                                 dateLabel ?: "விலை விவரம்",
-                                style = MaterialTheme.typography.headlineMedium,
+                                fontSize = 23.sp,
                                 fontWeight = FontWeight.ExtraBold
                             )
                             if (overallTrend != null) {
@@ -197,20 +204,15 @@ private fun MarketScreen() {
                                 ) {
                                     Text(
                                         (if (overallTrend >= 0) "▲ " else "▼ ") + "%.2f%%".format(Locale.US, kotlin.math.abs(overallTrend)),
-                                        Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+                                        Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
                                         color = if (overallTrend >= 0) androidx.compose.ui.graphics.Color(0xFF16834A) else androidx.compose.ui.graphics.Color(0xFFB3261E),
-                                        style = MaterialTheme.typography.titleLarge,
-                                        fontWeight = FontWeight.ExtraBold
+                                        fontSize = 16.sp,
+                                        fontWeight = FontWeight.Bold
                                     )
                                 }
                             }
                         }
-                        Spacer(Modifier.height(3.dp))
-                        Text(
-                            "விலைத் தகவல்",
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold
-                        )
+                        Text("விலைத் தகவல்", fontSize = 16.sp, fontWeight = FontWeight.Bold)
                     }
                 }
                 WeatherAlertCard()
@@ -231,11 +233,6 @@ private fun MarketScreen() {
                         text = { Text(message) }
                     )
                 }
-                TabRow(selectedTabIndex = selectedTab) {
-                    listOf("இன்று", "வாரம்", "மாதம்").forEachIndexed { index, label ->
-                        Tab(selectedTab == index, { selectedTab = index }, text = { Text(label) })
-                    }
-                }
                 when (selectedTab) {
                     0 -> TodayList(rows, dateLabel, loading)
                     1 -> HistoryList(rows, weekly = true)
@@ -249,7 +246,6 @@ private fun MarketScreen() {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun TodayList(rows: List<PriceRow>, date: String?, loading: Boolean) {
-    val context = LocalContext.current
     val validRows = rows.filter { it.low != null || it.high != null }
     val changedRows = validRows.mapNotNull { row ->
         val now = midpoint(row.low, row.high)
@@ -323,18 +319,6 @@ private fun TodayList(rows: List<PriceRow>, date: String?, loading: Boolean) {
                 }
             }
         }
-        val share = remember(filteredRows, date) {
-            buildString {
-                append("நாமக்கல் உழவர் சந்தை விலை — ${date ?: ""}\n")
-                filteredRows.forEach {
-                    append("${it.tamil}: ₹${it.low ?: "—"} - ${it.high ?: "—"} ${it.unit} ${changeArrow(it)}\n")
-                }
-            }
-        }
-        OutlinedButton(onClick = {
-            val intent = Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, share) }
-            context.startActivity(Intent.createChooser(intent, "விலைப்பட்டியலைப் பகிரவும்"))
-        }, Modifier.fillMaxWidth()) { Text("WhatsApp / பகிர்வு") }
     }
 }
 private fun changeArrow(row: PriceRow): String {
