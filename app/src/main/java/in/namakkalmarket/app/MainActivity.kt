@@ -108,7 +108,7 @@ private fun MarketScreen() {
     val repo = remember { SheetRepository(context) }
     var rows by remember { mutableStateOf(repo.cachedRows()) }
     var dateLabel by remember { mutableStateOf(repo.cachedDate()) }
-    var selectedTab by remember { mutableStateOf(1) }
+    var selectedTab by remember { mutableStateOf(0) }
     var status by remember { mutableStateOf("விலைத் தகவலை ஏற்றுகிறது…") }
     var loading by remember { mutableStateOf(false) }
     var showRegistration by remember { mutableStateOf(false) }
