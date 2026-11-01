@@ -315,7 +315,7 @@ private fun TodayList(rows: List<PriceRow>, date: String?, loading: Boolean) {
                                         painter = painterResource(photoRes),
                                         contentDescription = row.tamil,
                                         modifier = Modifier.fillMaxSize(),
-                                        contentScale = ContentScale.Crop
+                                        contentScale = ContentScale.Fit
                                     )
                                 } else {
                                     Text(vegetableEmoji(row.tamil), fontSize = 22.sp)
@@ -357,11 +357,12 @@ private fun TodayList(rows: List<PriceRow>, date: String?, loading: Boolean) {
 private fun formatPrice(value: Double): String = if (value % 1.0 == 0.0) value.toInt().toString() else value.toString()
 
 private fun vegetableImageRes(name: String): Int? = when {
+    // Match specific Tamil names before broad "வாழை" matching.
     name.contains("வாழை இலை") -> R.drawable.vegetable_banana_leaf
     name.contains("தேங்காய்") || name.contains("தேங்கா") -> R.drawable.vegetable_coconut
     name.contains("கொய்யா") -> R.drawable.vegetable_guava
     name.contains("மலைவாழை") -> R.drawable.vegetable_hill_banana
-    name.contains("பச்சை வாழை") || name.contains("வாழைப்பழ") -> R.drawable.vegetable_raw_banana
+    name.contains("பச்சை வாழை") || name.contains("வாழைப்பழ") || name.contains("வாழைப்பூ") -> R.drawable.vegetable_raw_banana
     else -> null
 }
 
