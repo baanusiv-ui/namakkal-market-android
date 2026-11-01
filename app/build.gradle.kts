@@ -3,6 +3,8 @@ plugins {
  id("org.jetbrains.kotlin.android")
  id("org.jetbrains.kotlin.plugin.compose")
 }
+val persistentKeystorePath = System.getenv("ANDROID_KEYSTORE_PATH")
+
 android {
  namespace = "com.namakkalmarket.app"
  compileSdk = 35
@@ -14,6 +16,23 @@ android {
   versionName = "1.0.2"
   buildConfigField("String", "SUPABASE_URL", "\"https://zvjizwzuejqboetjrwkl.supabase.co\"")
   buildConfigField("String", "SUPABASE_PUBLISHABLE_KEY", "\"sb_publishable_hg4ZDwD1sXFvCYGdRdnFEw_ro0ra4w7\"")
+ }
+ signingConfigs {
+  if (persistentKeystorePath != null) {
+   create("persistent") {
+    storeFile = file(persistentKeystorePath)
+    storePassword = System.getenv("ANDROID_KEYSTORE_PASSWORD")
+    keyAlias = System.getenv("ANDROID_KEY_ALIAS")
+    keyPassword = System.getenv("ANDROID_KEY_PASSWORD")
+   }
+  }
+ }
+ buildTypes {
+  getByName("debug") {
+   if (persistentKeystorePath != null) {
+    signingConfig = signingConfigs.getByName("persistent")
+   }
+  }
  }
  buildFeatures { compose = true; buildConfig = true }
  compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
