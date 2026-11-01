@@ -79,20 +79,20 @@ fun WeatherAlertCard() {
         else -> "வானிலை நிலவரம்"
     }
 
-    Card(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
-        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text("நாமக்கல் வானிலை", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+    Card(Modifier.fillMaxWidth().padding(vertical = 3.dp)) {
+        Column(Modifier.padding(horizontal = 10.dp, vertical = 6.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text("நாமக்கல் வானிலை", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
             if (w == null) {
-                Text(condition, style = MaterialTheme.typography.bodyMedium)
+                Text(condition, style = MaterialTheme.typography.labelMedium)
             } else {
-                Text("${w.temperature.toInt()}°C  •  ${condition}  •  உணரும் வெப்பம் ${w.apparent.toInt()}°C",
-                    style = MaterialTheme.typography.bodyMedium)
-                Text("காற்று ${w.wind.toInt()} கி.மீ/மணி", style = MaterialTheme.typography.bodySmall)
-                if (warning != null) {
-                    Text("⚠ $warning", color = Color(0xFFB3261E), fontWeight = FontWeight.SemiBold)
-                } else {
-                    Text("தற்போது முக்கிய வானிலை எச்சரிக்கை இல்லை", color = Color(0xFF16834A))
-                }
+                Text("${w.temperature.toInt()}°C  •  ${condition}  •  உணரும் ${w.apparent.toInt()}°C",
+                    style = MaterialTheme.typography.labelMedium)
+                Text(
+                    if (warning != null) "⚠ $warning" else "காற்று ${w.wind.toInt()} கி.மீ/மணி  •  முக்கிய எச்சரிக்கை இல்லை",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = if (warning != null) Color(0xFFB3261E) else Color(0xFF16834A),
+                    fontWeight = FontWeight.Medium
+                )
             }
         }
     }
