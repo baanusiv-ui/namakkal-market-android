@@ -3,6 +3,10 @@ package com.namakkalmarket.app
 import android.app.Activity
 import android.content.Intent
 import android.os.Bundle
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
+import android.speech.tts.TextToSpeech
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.Canvas
@@ -25,9 +29,37 @@ import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 class MainActivity : ComponentActivity() {
+    private var welcomeTts: TextToSpeech? = null
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        if (Build.VERSION.SDK_INT >= 33 &&
+            checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 4102)
+        }
+        MarketPriceWatchWorker.schedule(this)
+        welcomeTts = TextToSpeech(this) { result ->
+            if (result == TextToSpeech.SUCCESS) {
+                val tamilResult = welcomeTts?.setLanguage(Locale("ta", "IN"))
+                if (tamilResult != TextToSpeech.LANG_MISSING_DATA &&
+                    tamilResult != TextToSpeech.LANG_NOT_SUPPORTED) {
+                    val greeting = if (java.time.LocalTime.now().hour < 12) {
+                        "காலை வணக்கம்! நாமக்கல் உழவர் சந்தைக்கு உங்களை அன்புடன் வரவேற்கிறோம். இன்றைய காய்கறி விலைகளை அறிந்து பயன் பெறுங்கள்."
+                    } else {
+                        "மாலை வணக்கம்! நாமக்கல் உழவர் சந்தைக்கு உங்களை அன்புடன் வரவேற்கிறோம். இன்றைய காய்கறி விலைகளை அறிந்து பயன் பெறுங்கள்."
+                    }
+                    welcomeTts?.speak(greeting, TextToSpeech.QUEUE_FLUSH, null, "namakkal-welcome")
+                }
+            }
+        }
         setContent { MarketScreen() }
+    }
+
+    override fun onDestroy() {
+        welcomeTts?.stop()
+        welcomeTts?.shutdown()
+        welcomeTts = null
+        super.onDestroy()
     }
 }
 
@@ -68,6 +100,10 @@ private fun MarketScreen() {
                     Text("NAMAKKAL MARKET", style = MaterialTheme.typography.labelSmall)
                 } },
                 actions = {
+                    TextButton(onClick = {
+                        val social = Intent(Intent.ACTION_VIEW, android.net.Uri.parse("https://www.instagram.com/namakkal_ulavar_santhai/"))
+                        context.startActivity(social)
+                    }) { Text("📷") }
                     TextButton(onClick = { refresh() }, enabled = !loading) { Text("புதுப்பி") }
                     TextButton(onClick = { (context as? Activity)?.finish() }) { Text("மூடு") }
                 }
