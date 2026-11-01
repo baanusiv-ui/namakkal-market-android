@@ -173,24 +173,24 @@ private fun MarketScreen() {
             }
         }, bottomBar = {
             Surface(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 8.dp),
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 4.dp),
                 color = androidx.compose.ui.graphics.Color(0xFFF0E8FA),
                 shape = RoundedCornerShape(30.dp),
                 tonalElevation = 2.dp
             ) {
-                Row(Modifier.fillMaxWidth().padding(5.dp)) {
+                Row(Modifier.fillMaxWidth().padding(3.dp)) {
                     listOf("இன்று", "வாரம்", "மாதம்").forEachIndexed { index, label ->
                         Column(
                             Modifier.weight(1f).clip(RoundedCornerShape(26.dp))
                                 .background(if (selectedTab == index) androidx.compose.ui.graphics.Color(0xFF5634B4) else androidx.compose.ui.graphics.Color.Transparent)
                                 .clickable { selectedTab = index }
-                                .padding(vertical = 9.dp),
+                                .padding(vertical = 5.dp),
                             horizontalAlignment = Alignment.CenterHorizontally,
                             verticalArrangement = Arrangement.Center
                         ) {
-                            Text(listOf("⌂", "▦", "▣")[index], fontSize = 20.sp,
+                            Text(listOf("⌂", "▦", "▣")[index], fontSize = 16.sp,
                                 color = if (selectedTab == index) androidx.compose.ui.graphics.Color.White else androidx.compose.ui.graphics.Color(0xFF624BA4))
-                            Text(label, fontSize = 15.sp, fontWeight = FontWeight.Bold,
+                            Text(label, fontSize = 13.sp, fontWeight = FontWeight.Bold,
                                 color = if (selectedTab == index) androidx.compose.ui.graphics.Color.White else androidx.compose.ui.graphics.Color(0xFF624BA4))
                         }
                     }
@@ -205,13 +205,7 @@ private fun MarketScreen() {
                 }
                 val overallTrend = trendValues.takeIf { it.isNotEmpty() }?.average()
                 Card(Modifier.fillMaxWidth()) {
-                    Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 7.dp)) {
-                        Text(
-                            "நாமக்கல் உழவர் சந்தை",
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.ExtraBold,
-                            maxLines = 1
-                        )
+                    Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 5.dp)) {
                         Row(
                             Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically,
@@ -219,8 +213,8 @@ private fun MarketScreen() {
                         ) {
                             Text(
                                 dateLabel ?: "விலை விவரம்",
-                                fontSize = 23.sp,
-                                fontWeight = FontWeight.ExtraBold
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.Bold
                             )
                             if (overallTrend != null) {
                                 Surface(
@@ -231,7 +225,7 @@ private fun MarketScreen() {
                                         (if (overallTrend >= 0) "▲ " else "▼ ") + "%.2f%%".format(Locale.US, kotlin.math.abs(overallTrend)),
                                         Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
                                         color = if (overallTrend >= 0) androidx.compose.ui.graphics.Color(0xFF16834A) else androidx.compose.ui.graphics.Color(0xFFB3261E),
-                                        fontSize = 16.sp,
+                                        fontSize = 14.sp,
                                         fontWeight = FontWeight.Bold
                                     )
                                 }
@@ -315,24 +309,24 @@ private fun TodayList(rows: List<PriceRow>, date: String?, loading: Boolean) {
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Surface(
-                            modifier = Modifier.size(48.dp),
-                            shape = RoundedCornerShape(16.dp),
+                            modifier = Modifier.size(38.dp),
+                            shape = RoundedCornerShape(13.dp),
                             color = androidx.compose.ui.graphics.Color(0xFFF0E8FA)
                         ) {
                             Box(contentAlignment = Alignment.Center) {
-                                Text(vegetableEmoji(row.tamil), fontSize = 27.sp)
+                                Text(vegetableEmoji(row.tamil), fontSize = 22.sp)
                             }
                         }
-                        Column(Modifier.weight(1f).padding(start = 8.dp)) {
-                            Text(row.tamil, fontSize = 14.sp, fontWeight = FontWeight.Bold, maxLines = 1, softWrap = false)
+                        Column(Modifier.weight(1f).padding(start = 7.dp)) {
+                            Text(row.tamil, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1, softWrap = false)
                         }
-                        Column(Modifier.width(94.dp), horizontalAlignment = Alignment.End) {
-                            Text("₹${row.low ?: "—"} – ${row.high ?: "—"}", fontSize = 14.sp, fontWeight = FontWeight.Bold,
+                        Column(Modifier.width(86.dp), horizontalAlignment = Alignment.End) {
+                            Text("₹${row.low ?: "—"} – ${row.high ?: "—"}", fontSize = 13.sp, fontWeight = FontWeight.Bold,
                                 textAlign = TextAlign.End)
                             Text(row.unit, style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
-                        Column(Modifier.width(58.dp), horizontalAlignment = Alignment.End) {
+                        Column(Modifier.width(50.dp), horizontalAlignment = Alignment.End) {
                             if (change == null) {
                                 Text("—", color = MaterialTheme.colorScheme.onSurfaceVariant)
                             } else {
@@ -343,7 +337,7 @@ private fun TodayList(rows: List<PriceRow>, date: String?, loading: Boolean) {
                                         else if (change < 0) androidx.compose.ui.graphics.Color(0xFFB3261E)
                                         else MaterialTheme.colorScheme.onSurfaceVariant,
                                     fontWeight = FontWeight.SemiBold,
-                                    fontSize = 11.sp,
+                                    fontSize = 10.sp,
                                     textAlign = TextAlign.End
                                 )
                             }
