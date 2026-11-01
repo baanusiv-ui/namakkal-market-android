@@ -162,47 +162,156 @@ private fun MarketScreen() {
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun TodayList(rows: List<PriceRow>, date: String?, loading: Boolean) {
     val context = LocalContext.current
+    var search by remember { mutableStateOf("") }
+    var filter by remember { mutableStateOf("அனைத்தும்") }
     val validRows = rows.filter { it.low != null || it.high != null }
+    val changedRows = validRows.mapNotNull { row ->
+        val now = midpoint(row.low, row.high)
+        val before = midpoint(row.previousLow, row.previousHigh)
+        if (now == null || before == null || before == 0.0) null else row to ((now - before) / before * 100.0)
+    }
+    val avgChange = changedRows.map { it.second }.takeIf { it.isNotEmpty() }?.average()
+    val marketUp = avgChange != null && avgChange >= 0.0
+    val filteredRows = validRows.filter { row ->
+        val matchesSearch = search.isBlank() || row.tamil.contains(search.trim(), true) ||
+            row.english.contains(search.trim(), true)
+        val change = changedRows.firstOrNull { it.first == row }?.second
+        val matchesFilter = when (filter) {
+            "விலை உயர்வு" -> change != null && change > 0
+            "விலை குறைவு" -> change != null && change < 0
+            "இன்று" -> true
+            else -> true
+        }
+        matchesSearch && matchesFilter
+    }
     if (loading && rows.isEmpty()) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
         return
     }
-    if (validRows.isEmpty()) {
-        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Text("விலைத் தகவல் தற்போது இல்லை.\nஇணைய இணைப்பு மற்றும் தரவு அனுமதியைச் சரிபார்க்கவும்.", textAlign = TextAlign.Center)
-        }
-        return
-    }
     Column(Modifier.fillMaxSize()) {
-        Row(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
-            Text("காய்கறி", Modifier.weight(1f), fontWeight = FontWeight.Bold)
-            Text("குறைந்த", Modifier.weight(.55f), textAlign = TextAlign.End, fontWeight = FontWeight.Bold)
-            Text("அதிக", Modifier.weight(.55f), textAlign = TextAlign.End, fontWeight = FontWeight.Bold)
-            Text("மாற்றம்", Modifier.width(58.dp), textAlign = TextAlign.End, fontWeight = FontWeight.Bold)
-        }
-        HorizontalDivider()
-        LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(bottom = 10.dp)) {
-            items(validRows) { row ->
-                Row(Modifier.fillMaxWidth().padding(vertical = 11.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f)) {
-                        Text(row.tamil, fontWeight = FontWeight.SemiBold)
-                        Text(row.unit, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                    Text(row.low ?: "—", Modifier.weight(.55f), textAlign = TextAlign.End)
-                    Text(row.high ?: "—", Modifier.weight(.55f), textAlign = TextAlign.End)
-                    Text(changeArrow(row), Modifier.width(58.dp), textAlign = TextAlign.End,
-                        color = arrowColor(row))
-                }
-                HorizontalDivider()
+        OutlinedTextField(
+            value = search,
+            onValueChange = { search = it },
+            modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+            placeholder = { Text("காய்கறியைத் தேடுங்கள் / Search") },
+            leadingIcon = { Text("⌕", style = MaterialTheme.typography.headlineSmall) },
+            singleLine = true
+        )
+        Row(
+            Modifier.fillMaxWidth().padding(vertical = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            listOf("அனைத்தும்", "இன்று", "விலை உயர்வு", "விலை குறைவு").forEach { label ->
+                FilterChip(
+                    selected = filter == label,
+                    onClick = { filter = label },
+                    label = { Text(label, maxLines = 1) }
+                )
             }
         }
-        val share = remember(validRows, date) {
+        Card(Modifier.fillMaxWidth().padding(bottom = 8.dp)) {
+            Row(
+                Modifier.fillMaxWidth().padding(14.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text("சந்தை நிலவரம்", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text("முந்தைய சந்தை நாளுடன் ஒப்பீடு", style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(
+                        when {
+                            avgChange == null -> "மாற்றத்தை கணக்கிட போதிய தரவு இல்லை"
+                            marketUp -> "சந்தை விலை உயர்வு"
+                            else -> "சந்தை விலை குறைவு"
+                        },
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+                if (avgChange != null) {
+                    Surface(
+                        color = if (marketUp) androidx.compose.ui.graphics.Color(0xFFE5F5EC) else androidx.compose.ui.graphics.Color(0xFFFCE9E8),
+                        shape = MaterialTheme.shapes.large
+                    ) {
+                        Text(
+                            (if (marketUp) "▲ " else "▼ ") + "%.2f%%".format(Locale.US, kotlin.math.abs(avgChange)),
+                            Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                            color = if (marketUp) androidx.compose.ui.graphics.Color(0xFF16834A) else androidx.compose.ui.graphics.Color(0xFFB3261E),
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
+        }
+        Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text("காய்கறி", Modifier.weight(1f), fontWeight = FontWeight.Bold)
+            Text("இன்றைய விலை", Modifier.width(112.dp), textAlign = TextAlign.End, fontWeight = FontWeight.Bold)
+            Text("மாற்றம்", Modifier.width(78.dp), textAlign = TextAlign.End, fontWeight = FontWeight.Bold)
+        }
+        HorizontalDivider()
+        if (filteredRows.isEmpty()) {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Text(if (validRows.isEmpty()) "விலைத் தகவல் தற்போது இல்லை." else "பொருத்தமான காய்கறிகள் இல்லை.", textAlign = TextAlign.Center)
+            }
+        } else {
+            LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(bottom = 10.dp)) {
+                items(filteredRows) { row ->
+                    val change = changedRows.firstOrNull { it.first == row }?.second
+                    Row(
+                        Modifier.fillMaxWidth().padding(vertical = 13.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Surface(
+                            modifier = Modifier.size(42.dp),
+                            shape = MaterialTheme.shapes.large,
+                            color = MaterialTheme.colorScheme.secondaryContainer
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Text("🥬", style = MaterialTheme.typography.titleMedium)
+                            }
+                        }
+                        Column(Modifier.weight(1f).padding(start = 10.dp)) {
+                            Text(row.tamil, fontWeight = FontWeight.SemiBold)
+                            Text(row.english.ifBlank { row.unit }, style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Column(Modifier.width(112.dp), horizontalAlignment = Alignment.End) {
+                            Text("₹${row.low ?: "—"} – ${row.high ?: "—"}", fontWeight = FontWeight.Bold,
+                                textAlign = TextAlign.End)
+                            Text(row.unit, style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Column(Modifier.width(78.dp), horizontalAlignment = Alignment.End) {
+                            if (change == null) {
+                                Text("—", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            } else {
+                                Text(
+                                    (if (change > 0) "▲ " else if (change < 0) "▼ " else "• ") +
+                                        "%.1f%%".format(Locale.US, kotlin.math.abs(change)),
+                                    color = if (change > 0) androidx.compose.ui.graphics.Color(0xFF16834A)
+                                        else if (change < 0) androidx.compose.ui.graphics.Color(0xFFB3261E)
+                                        else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontWeight = FontWeight.SemiBold,
+                                    textAlign = TextAlign.End
+                                )
+                            }
+                        }
+                    }
+                    HorizontalDivider()
+                }
+            }
+        }
+        val share = remember(filteredRows, date) {
             buildString {
                 append("நாமக்கல் உழவர் சந்தை விலை — ${date ?: ""}\n")
-                validRows.forEach { append("${it.tamil}: ${it.low ?: "—"} - ${it.high ?: "—"} ${it.unit} ${changeArrow(it)}\n") }
+                filteredRows.forEach {
+                    append("${it.tamil}: ₹${it.low ?: "—"} - ${it.high ?: "—"} ${it.unit} ${changeArrow(it)}\n")
+                }
             }
         }
         OutlinedButton(onClick = {
@@ -211,7 +320,6 @@ private fun TodayList(rows: List<PriceRow>, date: String?, loading: Boolean) {
         }, Modifier.fillMaxWidth()) { Text("WhatsApp / பகிர்வு") }
     }
 }
-
 private fun changeArrow(row: PriceRow): String {
     val now = midpoint(row.low, row.high)
     val before = midpoint(row.previousLow, row.previousHigh)
