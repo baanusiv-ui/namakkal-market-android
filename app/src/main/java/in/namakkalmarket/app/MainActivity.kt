@@ -230,6 +230,7 @@ private fun MarketScreen() {
                     }
                 }
                 WeatherAlertCard()
+                WhatsAppBridgeCard(rows = rows, dateLabel = dateLabel)
                 if (showRegistration) {
                     MobileRegistrationDialog(
                         onDismiss = { showRegistration = false },
