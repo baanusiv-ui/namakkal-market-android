@@ -10,6 +10,7 @@ import android.speech.tts.TextToSpeech
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -64,6 +65,40 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+
+@Composable
+private fun AppLogo(modifier: Modifier = Modifier) {
+    Canvas(modifier) {
+        val w = size.width
+        val h = size.height
+        val green = androidx.compose.ui.graphics.Color(0xFF16852B)
+        val lightGreen = androidx.compose.ui.graphics.Color(0xFF76C51D)
+        val darkGreen = androidx.compose.ui.graphics.Color(0xFF075A25)
+        val orange = androidx.compose.ui.graphics.Color(0xFFFFB52E)
+        drawCircle(lightGreen, radius = w * 0.48f)
+        drawCircle(androidx.compose.ui.graphics.Color.White, radius = w * 0.405f)
+        // sunrise and farmland
+        drawCircle(orange, radius = w * 0.16f, center = Offset(w * 0.68f, h * 0.48f))
+        for (i in 0..4) {
+            val x = w * (0.52f + i * 0.075f)
+            drawLine(orange, Offset(x, h * 0.19f), Offset(x, h * 0.27f), strokeWidth = w * 0.018f, cap = StrokeCap.Round)
+        }
+        for (i in 0..2) {
+            val y = h * (0.65f + i * 0.075f)
+            drawLine(darkGreen, Offset(w * 0.49f, y), Offset(w * 0.91f, y - h * 0.04f), strokeWidth = w * 0.035f, cap = StrokeCap.Round)
+        }
+        // farmer silhouette, head wrap and body
+        drawCircle(darkGreen, radius = w * 0.085f, center = Offset(w * 0.29f, h * 0.31f))
+        drawOval(darkGreen, topLeft = Offset(w * 0.18f, h * 0.40f), size = androidx.compose.ui.geometry.Size(w * 0.24f, h * 0.39f))
+        drawLine(lightGreen, Offset(w * 0.20f, h * 0.27f), Offset(w * 0.39f, h * 0.27f), strokeWidth = w * 0.045f, cap = StrokeCap.Round)
+        drawLine(lightGreen, Offset(w * 0.19f, h * 0.31f), Offset(w * 0.38f, h * 0.31f), strokeWidth = w * 0.035f, cap = StrokeCap.Round)
+        // phone in farmer's hand
+        drawLine(darkGreen, Offset(w * 0.36f, h * 0.56f), Offset(w * 0.54f, h * 0.48f), strokeWidth = w * 0.055f, cap = StrokeCap.Round)
+        drawLine(darkGreen, Offset(w * 0.54f, h * 0.48f), Offset(w * 0.60f, h * 0.38f), strokeWidth = w * 0.055f, cap = StrokeCap.Round)
+        drawLine(darkGreen, Offset(w * 0.56f, h * 0.34f), Offset(w * 0.64f, h * 0.38f), strokeWidth = w * 0.035f, cap = StrokeCap.Round)
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun MarketScreen() {
@@ -100,10 +135,16 @@ private fun MarketScreen() {
     MaterialTheme {
         Scaffold(topBar = {
             TopAppBar(
-                title = { Column {
-                    Text("நாமக்கல் உழவர் சந்தை", fontWeight = FontWeight.Bold)
-                    Text("NAMAKKAL MARKET", style = MaterialTheme.typography.labelSmall)
-                } },
+                title = {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        AppLogo(Modifier.size(42.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Column {
+                            Text("நாமக்கல் உழவர் சந்தை", fontWeight = FontWeight.Bold)
+                            Text("NAMAKKAL MARKET", style = MaterialTheme.typography.labelSmall)
+                        }
+                    }
+                },
                 actions = {
                     TextButton(onClick = {
                         val social = Intent(Intent.ACTION_VIEW, android.net.Uri.parse("https://www.facebook.com/ulavarsanthainamakkal"))
