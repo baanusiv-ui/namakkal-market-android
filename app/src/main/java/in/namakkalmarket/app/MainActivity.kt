@@ -235,27 +235,69 @@ private fun midpoint(low: String?, high: String?): Double? {
 
 @Composable
 private fun HistoryList(rows: List<PriceRow>, weekly: Boolean) {
-    // Anchor history views to the latest date actually present in the database,
-    // not the phone's calendar date (the current month may not have data yet).
-    val latestAvailableDate = rows.flatMap { it.history }.maxOfOrNull { it.date }
-    val cutoff = latestAvailableDate?.let { if (weekly) it.minusDays(6) else it.withDayOfMonth(1) }
-    val title = when {
-        latestAvailableDate == null -> if (weekly) "கிடைத்த கடைசி 7 நாட்கள்" else "கிடைத்த மாதம்"
-        weekly -> "கிடைத்த கடைசி 7 நாட்கள்"
-        else -> "கிடைத்த மாதம்: " + latestAvailableDate.format(DateTimeFormatter.ofPattern("MMMM yyyy", Locale("ta", "IN")))
-    }
+    val allHistory = rows.flatMap { it.history }
+    val latestAvailableDate = allHistory.maxOfOrNull { it.date }
+    val availableMonths = allHistory.map { java.time.YearMonth.from(it.date) }.distinct().sortedDescending()
+    var selectedMonth by remember(availableMonths) { mutableStateOf(availableMonths.firstOrNull()) }
+    var monthMenuExpanded by remember { mutableStateOf(false) }
+
+    val cutoff = latestAvailableDate?.let { if (weekly) it.minusDays(6) else null }
+    val selectedMonthLabel = selectedMonth?.format(DateTimeFormatter.ofPattern("MMMM yyyy", Locale("ta", "IN")))
+        ?: "மாதம் தேர்வு"
+    val title = if (weekly) "கிடைத்த கடைசி 7 நாட்கள்" else "மாத விலை வரலாறு"
+
     val itemsWithHistory = rows.mapNotNull { row ->
         val points = row.history.filter { point ->
-            cutoff != null && latestAvailableDate != null &&
-                !point.date.isBefore(cutoff) && !point.date.isAfter(latestAvailableDate)
-        }
+            if (weekly) {
+                cutoff != null && latestAvailableDate != null &&
+                    !point.date.isBefore(cutoff) && !point.date.isAfter(latestAvailableDate)
+            } else {
+                selectedMonth != null && java.time.YearMonth.from(point.date) == selectedMonth
+            }
+        }.sortedBy { it.date }
         if (points.isEmpty()) null else row to points
     }
+
     Column(Modifier.fillMaxSize()) {
-        Text(title, Modifier.padding(vertical = 10.dp), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        if (weekly) {
+            Text(title, Modifier.padding(vertical = 10.dp), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        } else {
+            Row(
+                Modifier.fillMaxWidth().padding(vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Box {
+                    OutlinedButton(onClick = { monthMenuExpanded = true }, enabled = availableMonths.isNotEmpty()) {
+                        Text(selectedMonthLabel)
+                        Text("  ▾")
+                    }
+                    DropdownMenu(
+                        expanded = monthMenuExpanded,
+                        onDismissRequest = { monthMenuExpanded = false }
+                    ) {
+                        availableMonths.forEach { month ->
+                            DropdownMenuItem(
+                                text = { Text(month.format(DateTimeFormatter.ofPattern("MMMM yyyy", Locale("ta", "IN")))) },
+                                onClick = {
+                                    selectedMonth = month
+                                    monthMenuExpanded = false
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
         if (itemsWithHistory.isEmpty()) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text("கிடைத்த விலைத் தேதிகளுக்கான வரலாறு இல்லை.", textAlign = TextAlign.Center)
+                Text(
+                    if (weekly) "கிடைத்த விலைத் தேதிகளுக்கான வரலாறு இல்லை."
+                    else "இந்த மாதத்திற்கான விலை வரலாறு இல்லை.",
+                    textAlign = TextAlign.Center
+                )
             }
         } else {
             LazyColumn(contentPadding = PaddingValues(bottom = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
