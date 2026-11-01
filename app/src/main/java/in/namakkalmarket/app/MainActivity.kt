@@ -1,5 +1,6 @@
 package com.namakkalmarket.app
 
+import android.app.Activity
 import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -66,7 +67,10 @@ private fun MarketScreen() {
                     Text("நாமக்கல் உழவர் சந்தை", fontWeight = FontWeight.Bold)
                     Text("NAMAKKAL MARKET", style = MaterialTheme.typography.labelSmall)
                 } },
-                actions = { TextButton(onClick = { refresh() }, enabled = !loading) { Text("புதுப்பி") } }
+                actions = {
+                    TextButton(onClick = { refresh() }, enabled = !loading) { Text("புதுப்பி") }
+                    TextButton(onClick = { (context as? Activity)?.finish() }) { Text("மூடு") }
+                }
             )
         }) { padding ->
             Column(Modifier.fillMaxSize().padding(padding).padding(horizontal = 14.dp)) {
