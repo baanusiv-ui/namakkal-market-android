@@ -26,33 +26,37 @@ import java.util.concurrent.TimeUnit
 class MarketPriceWatchWorker(context: Context, params: WorkerParameters) : Worker(context, params) {
     private val client = OkHttpClient()
 
-    override fun doWork(): Result = try {
-        val base = BuildConfig.SUPABASE_URL.trimEnd("/") + "/rest/v1/market_prices"
-        val headers = mapOf("apikey" to BuildConfig.SUPABASE_PUBLISHABLE_KEY, "Cache-Control" to "no-cache")
-        fun get(path: String): String {
-            val request = Request.Builder().url(base + path).apply { headers.forEach { (k,v) -> header(k,v) } }.build()
-            return client.newCall(request).execute().use { response ->
-                if (!response.isSuccessful) error("HTTP ${response.code}")
-                response.body?.string() ?: "[]"
+    override fun doWork(): Result {
+        return try {
+            val base = BuildConfig.SUPABASE_URL.trimEnd('/') + "/rest/v1/market_prices"
+            val headerMap = mapOf("apikey" to BuildConfig.SUPABASE_PUBLISHABLE_KEY, "Cache-Control" to "no-cache")
+            fun get(path: String): String {
+                val request = Request.Builder().url(base + path).apply {
+                    headerMap.forEach { (key, value) -> this.header(key, value) }
+                }.build()
+                return client.newCall(request).execute().use { response ->
+                    if (!response.isSuccessful) error("HTTP ${response.code}")
+                    response.body?.string() ?: "[]"
+                }
             }
+            val latestArray = JSONArray(get("?select=market_date&order=market_date.desc&limit=1"))
+            if (latestArray.length() == 0) return Result.success()
+            val date = latestArray.getJSONObject(0).getString("market_date")
+            val data = get("?select=market_date,tamil_name,english_name,low_price,high_price&market_date=eq.$date&order=tamil_name.asc,english_name.asc")
+            val rows = JSONArray(data)
+            val normalized = (0 until rows.length()).map { i ->
+                val o = rows.getJSONObject(i)
+                listOf(o.optString("tamil_name"), o.optString("english_name"), o.optString("low_price"), o.optString("high_price")).joinToString("|")
+            }.sorted().joinToString("\n")
+            val fingerprint = MessageDigest.getInstance("SHA-256").digest(normalized.toByteArray()).joinToString("") { "%02x".format(it) }
+            val prefs = applicationContext.getSharedPreferences("market_cache", Context.MODE_PRIVATE)
+            val old = prefs.getString("notification_fingerprint", null)
+            if (old != null && old != fingerprint) sendNotification(date)
+            prefs.edit().putString("notification_fingerprint", fingerprint).putString("notification_date", date).apply()
+            Result.success()
+        } catch (_: Exception) {
+            Result.retry()
         }
-        val latestArray = JSONArray(get("?select=market_date&order=market_date.desc&limit=1"))
-        if (latestArray.length() == 0) return Result.success()
-        val date = latestArray.getJSONObject(0).getString("market_date")
-        val data = get("?select=market_date,tamil_name,english_name,low_price,high_price&market_date=eq.$date&order=tamil_name.asc,english_name.asc")
-        val rows = JSONArray(data)
-        val normalized = (0 until rows.length()).map { i ->
-            val o = rows.getJSONObject(i)
-            listOf(o.optString("tamil_name"),o.optString("english_name"),o.optString("low_price"),o.optString("high_price")).joinToString("|")
-        }.sorted().joinToString("\n")
-        val fingerprint = MessageDigest.getInstance("SHA-256").digest(normalized.toByteArray()).joinToString("") { "%02x".format(it) }
-        val prefs = applicationContext.getSharedPreferences("market_cache", Context.MODE_PRIVATE)
-        val old = prefs.getString("notification_fingerprint", null)
-        if (old != null && old != fingerprint) sendNotification(date)
-        prefs.edit().putString("notification_fingerprint", fingerprint).putString("notification_date", date).apply()
-        Result.success()
-    } catch (_: Exception) {
-        Result.retry()
     }
 
     private fun sendNotification(date: String) {
