@@ -20,6 +20,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 import java.time.LocalDate
+import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 class MainActivity : ComponentActivity() {
@@ -163,18 +164,27 @@ private fun midpoint(low: String?, high: String?): Double? {
 
 @Composable
 private fun HistoryList(rows: List<PriceRow>, weekly: Boolean) {
-    val today = LocalDate.now()
-    val cutoff = if (weekly) today.minusDays(6) else today.withDayOfMonth(1)
-    val title = if (weekly) "கடந்த 7 நாட்கள்" else "இந்த மாதம்"
+    // Anchor history views to the latest date actually present in the database,
+    // not the phone's calendar date (the current month may not have data yet).
+    val latestAvailableDate = rows.flatMap { it.history }.maxOfOrNull { it.date }
+    val cutoff = latestAvailableDate?.let { if (weekly) it.minusDays(6) else it.withDayOfMonth(1) }
+    val title = when {
+        latestAvailableDate == null -> if (weekly) "கிடைத்த கடைசி 7 நாட்கள்" else "கிடைத்த மாதம்"
+        weekly -> "கிடைத்த கடைசி 7 நாட்கள்"
+        else -> "கிடைத்த மாதம்: " + latestAvailableDate.format(DateTimeFormatter.ofPattern("MMMM yyyy", Locale("ta", "IN")))
+    }
     val itemsWithHistory = rows.mapNotNull { row ->
-        val points = row.history.filter { !it.date.isBefore(cutoff) && !it.date.isAfter(today) }
+        val points = row.history.filter { point ->
+            cutoff != null && latestAvailableDate != null &&
+                !point.date.isBefore(cutoff) && !point.date.isAfter(latestAvailableDate)
+        }
         if (points.isEmpty()) null else row to points
     }
     Column(Modifier.fillMaxSize()) {
         Text(title, Modifier.padding(vertical = 10.dp), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
         if (itemsWithHistory.isEmpty()) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text("இந்த காலப்பகுதிக்கான விலை வரலாறு இன்னும் இல்லை.", textAlign = TextAlign.Center)
+                Text("கிடைத்த விலைத் தேதிகளுக்கான வரலாறு இல்லை.", textAlign = TextAlign.Center)
             }
         } else {
             LazyColumn(contentPadding = PaddingValues(bottom = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -184,7 +194,7 @@ private fun HistoryList(rows: List<PriceRow>, weekly: Boolean) {
                             Text(row.tamil, fontWeight = FontWeight.SemiBold)
                             Text(row.unit, style = MaterialTheme.typography.labelSmall)
                             HistoryChart(points)
-                            points.takeLast(7).forEach { p ->
+                            points.forEach { p ->
                                 Text("${p.date.dayOfMonth}/${p.date.monthValue}: ${p.low?.let(::shortPrice) ?: "—"} – ${p.high?.let(::shortPrice) ?: "—"}",
                                     style = MaterialTheme.typography.bodySmall)
                             }
