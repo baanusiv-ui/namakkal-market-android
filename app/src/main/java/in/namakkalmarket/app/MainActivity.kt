@@ -108,7 +108,7 @@ private fun MarketScreen() {
     val repo = remember { SheetRepository(context) }
     var rows by remember { mutableStateOf(repo.cachedRows()) }
     var dateLabel by remember { mutableStateOf(repo.cachedDate()) }
-    var selectedTab by remember { mutableStateOf(0) }
+    var selectedTab by remember { mutableStateOf(1) }
     var status by remember { mutableStateOf("விலைத் தகவலை ஏற்றுகிறது…") }
     var loading by remember { mutableStateOf(false) }
     var showRegistration by remember { mutableStateOf(false) }
@@ -135,6 +135,7 @@ private fun MarketScreen() {
 
     MaterialTheme {
         Scaffold(topBar = {
+            Column {
             TopAppBar(
                 title = {
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -163,6 +164,11 @@ private fun MarketScreen() {
                     TextButton(onClick = { (context as? Activity)?.finish() }) { Text("மூடு") }
                 }
             )
+            HorizontalDivider(
+                thickness = 1.dp,
+                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.65f)
+            )
+            }
         }, bottomBar = {
             Surface(tonalElevation = 3.dp) {
                 TabRow(selectedTabIndex = selectedTab) {
