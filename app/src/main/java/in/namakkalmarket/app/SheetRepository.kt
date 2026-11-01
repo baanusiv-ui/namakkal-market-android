@@ -24,6 +24,69 @@ data class PriceRow(
 )
 data class SheetData(val rows: List<PriceRow>, val date: LocalDate, val fallback: Boolean)
 
+private val tamilItemOrder = listOf(
+    "கத்தரி சிம்ரன்",
+    "கத்தரி ஊதா",
+    "கத்தரி பச்சை",
+    "தக்காளி",
+    "வெண்டை",
+    "அவரை",
+    "கொத்தவரை",
+    "முருங்கை",
+    "முள்ளங்கி",
+    "புடலை",
+    "பாகல்",
+    "பீர்க்கன்",
+    "வாழைக்காய்",
+    "வாழைப்பூ",
+    "வாழைத்தண்டு",
+    "பரங்கிக்காய்",
+    "பூசணி",
+    "சுரைக்காய்",
+    "கோவக்காய்",
+    "பீன்ஸ்",
+    "கேரட்",
+    "பீட்ரூட்",
+    "உருளை",
+    "சௌசௌ",
+    "முட்டைகோஸ்",
+    "காலிஃபிளவர்",
+    "குடைமிளகாய்",
+    "நூல்கோல்",
+    "பச்சை பட்டாணி",
+    "வெள்ளரிக்காய்",
+    "சேனை",
+    "கருணை",
+    "மரவள்ளி",
+    "சின்ன வெங்காயம்",
+    "பெரிய வெங்காயம்",
+    "இஞ்சி",
+    "பூண்டு",
+    "பச்சை மிளகாய்",
+    "எலுமிச்சை",
+    "கொலுமிச்சை",
+    "கீரை",
+    "கருவேப்பிலை",
+    "மல்லித்தழை",
+    "புதினா",
+    "வாழை இலை",
+    "தேங்காய்",
+    "கொய்யா",
+    "மலைவாழை",
+    "பச்சை வாழை",
+    "கற்பூரவள்ளி",
+    "ரஸ்தாளி",
+    "செவ்வாழை",
+    "பூவன்",
+    "இளநீர்",
+    "பலாப்பழம்",
+    "பப்பாளி",
+    "சீத்தாப்பழம்",
+    "நிலக்கடலை",
+    "தர்பூசணி"
+)
+private val tamilItemOrderIndex = tamilItemOrder.withIndex().associate { it.value to it.index }
+
 class SheetRepository(context: Context) {
     private val prefs = context.getSharedPreferences("market_cache", Context.MODE_PRIVATE)
     private val client = OkHttpClient.Builder().followRedirects(true).followSslRedirects(true).build()
@@ -94,7 +157,7 @@ class SheetRepository(context: Context) {
                 previousHigh = previous?.high?.let(::format),
                 history = history
             )
-        }.sortedBy { it.tamil }
+        }.sortedWith(compareBy<PriceRow> { tamilItemOrderIndex[it.tamil] ?: Int.MAX_VALUE }.thenBy { it.tamil })
 
         save(parsedRows, selectedDate)
         SheetData(parsedRows, selectedDate, selectedDate != today)
