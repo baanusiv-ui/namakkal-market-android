@@ -284,14 +284,7 @@ private fun MarketScreen(onConnectGoogle: ((() -> Unit) -> Unit)) {
                         Text("விலைத் தகவல்", fontSize = 16.sp, fontWeight = FontWeight.Bold)
                     }
                 }
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                    TextButton(onClick = { onConnectGoogle { refresh() } }) {
-                        Text("Google Sheet இணைக்க / புதுப்பிக்க")
-                    }
-                }
-                Text(status, style = MaterialTheme.typography.labelSmall)
                 WeatherAlertCard()
-                WhatsAppBridgeCard(rows = rows, dateLabel = dateLabel)
                 if (showRegistration) {
                     MobileRegistrationDialog(
                         onDismiss = {\n                            showRegistration = false\n                            registrationPrefs.edit().putBoolean("registration_prompt_seen", true).apply()\n                        },
