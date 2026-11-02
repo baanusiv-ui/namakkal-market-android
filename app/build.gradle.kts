@@ -43,6 +43,8 @@ dependencies {
  implementation("androidx.compose.ui:ui")
  implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
  implementation("com.squareup.okhttp3:okhttp:4.12.0")
+ implementation("com.google.android.gms:play-services-auth:21.6.0")
+ implementation("androidx.security:security-crypto:1.1.0-alpha07")
  implementation("androidx.work:work-runtime-ktx:2.10.0")
  implementation("androidx.core:core-ktx:1.15.0")
 }
