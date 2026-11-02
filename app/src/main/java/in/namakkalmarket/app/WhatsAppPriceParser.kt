@@ -33,12 +33,27 @@ object WhatsAppPriceParser {
             if (line.isBlank()) return@forEach
             val lower = line.lowercase()
             val item = aliases.entries.firstOrNull { (_, words) -> words.any { lower.contains(it.lowercase()) } } ?: return@forEach
-            val values = Regex("""(?<![\p{L}])(?:₹\s*)?((?:\d{1,5})(?:\.\d{1,2})?)""")
-                .findAll(line).mapNotNull { it.groupValues[1].toDoubleOrNull() }.toList()
-            if (values.isEmpty()) return@forEach
-            val low = values.minOrNull() ?: return@forEach
-            val high = values.maxOrNull() ?: low
-            if (low <= 0.0 || high > 100000.0) return@forEach
+            // Require a recognizable price range/currency marker to avoid treating
+            // dates and unrelated quantities on the same line as prices.
+            val number = """(\d{1,5}(?:\.\d{1,2})?)"""
+            val rangeMatch = Regex(
+                """$number\s*[-–—]\s*$number(?=\s*(?:/|₹|ரூ|ரூபாய்|$))""",
+                RegexOption.IGNORE_CASE
+            ).find(line)
+            val singleMatch = if (rangeMatch == null) {
+                Regex("""(?:₹|ரூ\.?\s*)$number(?=\s*(?:/|ரூபாய்|$))""", RegexOption.IGNORE_CASE)
+                    .find(line)
+            } else null
+            val low: Double
+            val high: Double
+            if (rangeMatch != null) {
+                low = rangeMatch.groupValues[1].toDoubleOrNull() ?: return@forEach
+                high = rangeMatch.groupValues[2].toDoubleOrNull() ?: return@forEach
+            } else if (singleMatch != null) {
+                low = singleMatch.groupValues[1].toDoubleOrNull() ?: return@forEach
+                high = low
+            } else return@forEach
+            if (low <= 0.0 || high < low || high > 100000.0) return@forEach
             output.add(WhatsAppPriceCandidate(item.key, low, high, line))
         }
         return output.distinctBy { it.name }
