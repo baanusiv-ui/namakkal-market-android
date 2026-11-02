@@ -15,6 +15,7 @@ fun WhatsAppBridgeCard(rows: List<PriceRow>, dateLabel: String?) {
     val context = LocalContext.current
     val prefs = remember { context.getSharedPreferences("whatsapp_inbox", android.content.Context.MODE_PRIVATE) }
     var latest by remember { mutableStateOf(readLatestWhatsApp(prefs)) }
+    var candidates by remember { mutableStateOf(readLatestCandidates(prefs)) }
     var expanded by remember { mutableStateOf(false) }
 
     Card(Modifier.fillMaxWidth().padding(top = 7.dp, bottom = 5.dp)) {
@@ -55,8 +56,14 @@ fun WhatsAppBridgeCard(rows: List<PriceRow>, dateLabel: String?) {
                     HorizontalDivider(Modifier.padding(vertical = 5.dp))
                     Text("கடைசியாகப் பெற்ற செய்தி • ${message.first}", style = MaterialTheme.typography.labelSmall)
                     Text(message.second, style = MaterialTheme.typography.bodySmall, maxLines = 3)
+                    if (candidates.isNotEmpty()) {
+                        Text("விலை கண்டறியப்பட்ட வரிகள் — சரிபார்க்கவும்", style = MaterialTheme.typography.labelMedium)
+                        candidates.forEach { Text("${it.first}: ₹${it.second} – ₹${it.third}", style = MaterialTheme.typography.bodySmall) }
+                    } else {
+                        Text("இந்தச் செய்தியில் அடையாளம் காணக்கூடிய விலை வரிகள் இல்லை.", style = MaterialTheme.typography.bodySmall)
+                    }
                 } ?: Text("இன்னும் WhatsApp செய்தி பெறப்படவில்லை.", style = MaterialTheme.typography.bodySmall)
-                TextButton(onClick = { latest = readLatestWhatsApp(prefs) }) { Text("செய்தியைப் புதுப்பி") }
+                TextButton(onClick = { latest = readLatestWhatsApp(prefs); candidates = readLatestCandidates(prefs) }) { Text("செய்தியைப் புதுப்பி") }
             }
         }
     }
@@ -69,3 +76,13 @@ private fun readLatestWhatsApp(prefs: android.content.SharedPreferences): Pair<S
         item.optString("source") to (item.optString("title") + ": " + item.optString("text"))
     }
 }.getOrNull()
+
+private fun readLatestCandidates(prefs: android.content.SharedPreferences): List<Triple<String, String, String>> = runCatching {
+    val messages = JSONArray(prefs.getString("messages", "[]"))
+    if (messages.length() == 0) return emptyList()
+    val array = messages.getJSONObject(0).optJSONArray("candidates") ?: return emptyList()
+    (0 until array.length()).map { i ->
+        val item = array.getJSONObject(i)
+        Triple(item.optString("name"), item.optString("low"), item.optString("high"))
+    }
+}.getOrDefault(emptyList())
