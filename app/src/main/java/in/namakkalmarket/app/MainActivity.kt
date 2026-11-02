@@ -166,7 +166,7 @@ private fun MarketScreen(onConnectGoogle: ((() -> Unit) -> Unit)) {
     var showRegistration by remember { mutableStateOf(false) }
     var registrationStatus by remember { mutableStateOf<String?>(null) }
     val registrationPrefs = remember { context.getSharedPreferences("namakkal_market_user", android.content.Context.MODE_PRIVATE) }
-    LaunchedEffect(Unit) { if (!registrationPrefs.getBoolean("mobile_registered", false)) showRegistration = true }
+    LaunchedEffect(Unit) { if (!registrationPrefs.getBoolean("registration_prompt_seen", false)) showRegistration = true }
 
     fun refresh() {
         scope.launch {
@@ -294,10 +294,10 @@ private fun MarketScreen(onConnectGoogle: ((() -> Unit) -> Unit)) {
                 WhatsAppBridgeCard(rows = rows, dateLabel = dateLabel)
                 if (showRegistration) {
                     MobileRegistrationDialog(
-                        onDismiss = { showRegistration = false },
+                        onDismiss = {\n                            showRegistration = false\n                            registrationPrefs.edit().putBoolean("registration_prompt_seen", true).apply()\n                        },
                         onSaved = { message ->
                             showRegistration = false
-                            registrationPrefs.edit().putBoolean("mobile_registered", true).apply()
+                            registrationPrefs.edit()\n                                .putBoolean("mobile_registered", true)\n                                .putBoolean("registration_prompt_seen", true)\n                                .apply()
                             registrationStatus = message
                         }
                     )
