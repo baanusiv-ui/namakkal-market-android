@@ -92,6 +92,76 @@ class SheetRepository(private val context: Context) {
     private val client = OkHttpClient.Builder().followRedirects(true).followSslRedirects(true).build()
 
     suspend fun load(): SheetData = withContext(Dispatchers.IO) {
+        val token = GoogleTokenStore(context).getValidToken()
+        if (!token.isNullOrBlank()) {
+            runCatching { loadFromGoogleSheets(token) }.getOrElse { loadWhatsAppFallback() }
+        } else {
+            loadWhatsAppFallback()
+        }
+    }
+
+    private suspend fun loadFromGoogleSheets(token: String): SheetData = withContext(Dispatchers.IO) {
+        val today = LocalDate.now()
+        val monthTab = today.format(DateTimeFormatter.ofPattern("MMMM yyyy", Locale.ENGLISH))
+        val range = "'$monthTab'!A1:BK100"
+        val url = "https://sheets.googleapis.com/v4/spreadsheets/16-u9MpIaCPsT7wfby8CoM-80zThyOUXvNvOxV4WGyNk/values/" +
+            java.net.URLEncoder.encode(range, "UTF-8") + "?valueRenderOption=FORMATTED_VALUE"
+        val request = Request.Builder().url(url).header("Authorization", "Bearer $token").get().build()
+        client.newCall(request).execute().use { response ->
+            if (!response.isSuccessful) error("Google Sheets API HTTP ${response.code}")
+            val body = response.body?.string() ?: error("Google Sheets returned an empty response")
+            val values = JSONObject(body).optJSONArray("values") ?: error("Google Sheet has no values")
+            if (values.length() < 2) error("Google Sheet has no market rows")
+            val header = values.getJSONArray(0)
+            val dateColumns = linkedMapOf<LocalDate, Pair<Int, Int>>()
+            val headerRegex = Regex("^(\\d{4}-\\d{2}-\\d{2}) \\(Low\\)$")
+            for (i in 3 until header.length()) {
+                val label = header.optString(i)
+                val match = headerRegex.matchEntire(label) ?: continue
+                val date = LocalDate.parse(match.groupValues[1])
+                val highIndex = (i + 1).takeIf { it < header.length() && header.optString(it).contains("(High)") } ?: continue
+                dateColumns[date] = i to highIndex
+            }
+            if (dateColumns.isEmpty()) error("Date columns not found in $monthTab")
+            val rows = mutableListOf<PriceRow>()
+            for (i in 1 until values.length()) {
+                val cells = values.optJSONArray(i) ?: continue
+                val tamil = cells.optString(0).trim()
+                val english = cells.optString(1).trim()
+                if (tamil.isBlank() || english.isBlank()) continue
+                val unit = cells.optString(2).ifBlank { "Per Kg" }
+                val history = dateColumns.mapNotNull { (date, columns) ->
+                    val low = parsePrice(cells.optString(columns.first))
+                    val high = parsePrice(cells.optString(columns.second))
+                    if (low == null && high == null) null else DayPrice(date, low, high)
+                }.sortedBy { it.date }
+                if (history.isEmpty()) continue
+                val currentDate = history.filter { !it.date.isAfter(today) }.maxByOrNull { it.date }?.date ?: continue
+                val current = history.firstOrNull { it.date == currentDate }
+                val previous = history.filter { it.date.isBefore(currentDate) }.maxByOrNull { it.date }
+                rows += PriceRow(tamil, english, unit,
+                    current?.low?.let(::format), current?.high?.let(::format),
+                    previous?.low?.let(::format), previous?.high?.let(::format), history)
+            }
+            if (rows.isEmpty()) error("No market prices found in $monthTab")
+            val selectedDate = rows.flatMap { it.history }.maxOf { it.date }
+            val selectedRows = rows.map { row ->
+                val current = row.history.firstOrNull { it.date == selectedDate }
+                val previous = row.history.filter { it.date.isBefore(selectedDate) }.maxByOrNull { it.date }
+                row.copy(
+                    low = current?.low?.let(::format), high = current?.high?.let(::format),
+                    previousLow = previous?.low?.let(::format), previousHigh = previous?.high?.let(::format)
+                )
+            }.sortedWith(compareBy<PriceRow> { tamilItemOrderIndex[it.tamil] ?: Int.MAX_VALUE }.thenBy { it.tamil })
+            save(selectedRows, selectedDate)
+            SheetData(selectedRows, selectedDate, selectedDate != today)
+        }
+    }
+
+    private fun parsePrice(value: String): Double? =
+        value.replace(Regex("[^0-9.\\-]"), "").toDoubleOrNull()?.takeIf { it > 0.0 }
+
+    private suspend fun loadWhatsAppFallback(): SheetData = withContext(Dispatchers.IO) {
         val today = LocalDate.now()
         val inbox = context.getSharedPreferences("whatsapp_inbox", Context.MODE_PRIVATE)
         val messages = runCatching { JSONArray(inbox.getString("messages", "[]")) }.getOrDefault(JSONArray())
