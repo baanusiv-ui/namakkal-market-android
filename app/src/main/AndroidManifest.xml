@@ -7,7 +7,7 @@
   </activity>
    <service
    android:name=".WhatsAppNotificationListener"
-   android:label="Namakkal Market WhatsApp Reader"
+   android:label="Namakkal Market Background Sync"
    android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE"
    android:exported="true">
    <intent-filter>
