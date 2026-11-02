@@ -8,6 +8,12 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.speech.tts.TextToSpeech
 import androidx.activity.ComponentActivity
+import androidx.activity.result.ActivityResultLauncher
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.result.IntentSenderRequest
+import com.google.android.gms.auth.api.identity.Identity
+import com.google.android.gms.auth.api.identity.AuthorizationRequest
+import com.google.android.gms.common.api.Scope
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
@@ -41,6 +47,8 @@ import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 class MainActivity : ComponentActivity() {
+    private lateinit var googleAuthorizationLauncher: ActivityResultLauncher<IntentSenderRequest>
+    private var afterGoogleAuthorization: (() -> Unit)? = null
     private var welcomeTts: TextToSpeech? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -48,6 +56,17 @@ class MainActivity : ComponentActivity() {
         if (Build.VERSION.SDK_INT >= 33 &&
             checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
             requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 4102)
+        }
+        googleAuthorizationLauncher = registerForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { result ->
+            if (result.resultCode == Activity.RESULT_OK) {
+                runCatching {
+                    Identity.getAuthorizationClient(this).getAuthorizationResultFromIntent(result.data)
+                }.onSuccess { authorizationResult ->
+                    authorizationResult.accessToken?.let { GoogleTokenStore(this).save(it) }
+                    afterGoogleAuthorization?.invoke()
+                }
+            }
+            afterGoogleAuthorization = null
         }
         MarketPriceWatchWorker.schedule(this)
         AppUpdateCheckWorker.schedule(this)
@@ -65,7 +84,30 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
-        setContent { MarketScreen() }
+        setContent { MarketScreen(onConnectGoogle = { onAuthorized -> requestGoogleSheetAccess(onAuthorized) }) }
+    }
+
+    private fun requestGoogleSheetAccess(onAuthorized: () -> Unit) {
+        afterGoogleAuthorization = onAuthorized
+        val request = AuthorizationRequest.builder()
+            .setRequestedScopes(listOf(Scope("https://www.googleapis.com/auth/spreadsheets.readonly")))
+            .build()
+        Identity.getAuthorizationClient(this).authorize(request)
+            .addOnSuccessListener { result ->
+                if (result.hasResolution()) {
+                    val pendingIntent = result.pendingIntent
+                    if (pendingIntent != null) {
+                        googleAuthorizationLauncher.launch(IntentSenderRequest.Builder(pendingIntent.intentSender).build())
+                    }
+                } else {
+                    result.accessToken?.let { GoogleTokenStore(this).save(it) }
+                    afterGoogleAuthorization?.invoke()
+                    afterGoogleAuthorization = null
+                }
+            }
+            .addOnFailureListener {
+                afterGoogleAuthorization = null
+            }
     }
 
     override fun onDestroy() {
@@ -112,7 +154,7 @@ private fun AppLogo(modifier: Modifier = Modifier) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun MarketScreen() {
+private fun MarketScreen(onConnectGoogle: ((() -> Unit) -> Unit)) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val repo = remember { SheetRepository(context) }
@@ -135,7 +177,7 @@ private fun MarketScreen() {
                 dateLabel = result.date.format(java.time.format.DateTimeFormatter.ofPattern("dd-MM-yyyy"))
                 status = if (result.fallback) "கடைசியாக கிடைத்த விலைத் தேதி" else "இன்றைய விலைத் தகவல்"
             } catch (e: Exception) {
-                status = "WhatsApp விலைத் தரவைப் பெற முடியவில்லை: ${e.message ?: "மீண்டும் முயற்சிக்கவும்"}"
+                status = "விலைத் தரவைப் பெற முடியவில்லை: ${e.message ?: "மீண்டும் முயற்சிக்கவும்"}"
                 rows = repo.cachedRows()
                 dateLabel = repo.cachedDate()
             } finally { loading = false }
@@ -242,6 +284,12 @@ private fun MarketScreen() {
                         Text("விலைத் தகவல்", fontSize = 16.sp, fontWeight = FontWeight.Bold)
                     }
                 }
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                    TextButton(onClick = { onConnectGoogle { refresh() } }) {
+                        Text("Google Sheet இணைக்க / புதுப்பிக்க")
+                    }
+                }
+                Text(status, style = MaterialTheme.typography.labelSmall)
                 WeatherAlertCard()
                 WhatsAppBridgeCard(rows = rows, dateLabel = dateLabel)
                 if (showRegistration) {
