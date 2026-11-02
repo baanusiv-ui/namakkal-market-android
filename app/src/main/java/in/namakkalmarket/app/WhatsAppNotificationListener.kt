@@ -22,6 +22,7 @@ class WhatsAppNotificationListener : NotificationListenerService() {
             .put("title", title)
             .put("text", text)
             .put("time", sbn.postTime)
+            .put("candidates", WhatsAppPriceParser.toJson(WhatsAppPriceParser.parse(text)))
         val next = JSONArray().put(item)
         for (i in 0 until minOf(old.length(), 49)) {
             val previous = old.optJSONObject(i) ?: continue
