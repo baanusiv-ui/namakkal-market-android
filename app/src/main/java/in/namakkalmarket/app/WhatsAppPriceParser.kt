@@ -33,7 +33,7 @@ object WhatsAppPriceParser {
             if (line.isBlank()) return@forEach
             val lower = line.lowercase()
             val item = aliases.entries.firstOrNull { (_, words) -> words.any { lower.contains(it.lowercase()) } } ?: return@forEach
-            val values = Regex("""(?<![\\p{L}])(?:₹\\s*)?(\\d{1,5})(?:\\.\\d{1,2})?""")
+            val values = Regex("""(?<![\p{L}])(?:₹\s*)?((?:\d{1,5})(?:\.\d{1,2})?)""")
                 .findAll(line).mapNotNull { it.groupValues[1].toDoubleOrNull() }.toList()
             if (values.isEmpty()) return@forEach
             val low = values.minOrNull() ?: return@forEach
