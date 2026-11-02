@@ -93,68 +93,46 @@ class SheetRepository(context: Context) {
 
     suspend fun load(): SheetData = withContext(Dispatchers.IO) {
         val today = LocalDate.now()
-        val records = mutableListOf<JSONObject>()
-        var offset = 0
-        val pageSize = 1000
+        val inbox = context.getSharedPreferences("whatsapp_inbox", Context.MODE_PRIVATE)
+        val messages = runCatching { JSONArray(inbox.getString("messages", "[]")) }.getOrDefault(JSONArray())
+        val grouped = linkedMapOf<Pair<String, LocalDate>, DayPrice>()
+        val metadata = linkedMapOf<String, Triple<String, String, String>>()
 
-        // Read-only public customer prices from Supabase. The publishable key is safe to embed in a client.
-        while (true) {
-            val request = Request.Builder()
-                .url(
-                    BuildConfig.SUPABASE_URL.trimEnd('/') +
-                        "/rest/v1/market_prices?select=market_date,tamil_name,english_name,unit,low_price,high_price" +
-                        "&order=market_date.asc,tamil_name.asc,english_name.asc"
-                )
-                .header("apikey", BuildConfig.SUPABASE_PUBLISHABLE_KEY)
-                .header("Range-Unit", "items")
-                .header("Range", "$offset-${offset + pageSize - 1}")
-                .header("Cache-Control", "no-cache")
-                .build()
-
-            val page = client.newCall(request).execute().use { response ->
-                if (!response.isSuccessful) error("Supabase price API HTTP ${response.code}")
-                JSONArray(response.body?.string() ?: "[]")
+        // WhatsApp group notifications are the live source. Newest messages are stored first.
+        for (i in messages.length() - 1 downTo 0) {
+            val message = messages.optJSONObject(i) ?: continue
+            val groupName = message.optString("group", "")
+            if (!groupName.contains("நாமக்கல்", true) && !groupName.contains("namakkal", true)) continue
+            val timestamp = message.optLong("time", 0L)
+            if (timestamp <= 0L) continue
+            val date = java.time.Instant.ofEpochMilli(timestamp).atZone(java.time.ZoneId.systemDefault()).toLocalDate()
+            if (date.isAfter(today)) continue
+            val candidates = message.optJSONArray("candidates") ?: continue
+            for (j in 0 until candidates.length()) {
+                val candidate = candidates.optJSONObject(j) ?: continue
+                val name = candidate.optString("name").trim()
+                val low = candidate.optDouble("low", Double.NaN).takeIf { it.isFinite() }
+                val high = candidate.optDouble("high", Double.NaN).takeIf { it.isFinite() }
+                if (name.isBlank() || low == null || high == null || low <= 0.0 || high < low) continue
+                val key = name to date
+                // Iteration is oldest-to-newest, so later messages replace earlier prices for the same item/day.
+                grouped[key] = DayPrice(date, low, high)
+                metadata[name] = Triple(name, "", "கிலோ")
             }
-            for (i in 0 until page.length()) records.add(page.getJSONObject(i))
-            if (page.length() < pageSize) break
-            offset += page.length()
         }
 
-        val grouped = linkedMapOf<Pair<String, String>, MutableList<DayPrice>>()
-        val metadata = linkedMapOf<Pair<String, String>, Triple<String, String, String>>()
-        records.forEach { item ->
-            val date = runCatching { LocalDate.parse(item.getString("market_date")) }.getOrNull()
-                ?: return@forEach
-            if (date.isAfter(today)) return@forEach
-            val tamil = item.optString("tamil_name").trim()
-            if (tamil.isEmpty()) return@forEach
-            val english = item.optString("english_name").trim()
-            val unit = item.optString("unit").trim()
-            val low = item.optNullableDouble("low_price")
-            val high = item.optNullableDouble("high_price")
-            if (low == null && high == null) return@forEach
-
-            val key = tamil to english
-            grouped.getOrPut(key) { mutableListOf() }.add(DayPrice(date, low, high))
-            metadata[key] = Triple(tamil, english, unit)
-        }
-
-        val selectedDate = grouped.values.flatten().map { it.date }.maxOrNull()
-            ?: error("Supabase has no dated market prices yet")
-
-        val parsedRows = grouped.entries.map { (key, historyValues) ->
-            val history = historyValues.distinctBy { it.date }.sortedBy { it.date }
-            val current = history.firstOrNull { it.date == selectedDate }
+        if (grouped.isEmpty()) error("நாமக்கல் WhatsApp குழுவிலிருந்து விலைச் செய்தி இன்னும் வரவில்லை")
+        val selectedDate = grouped.values.maxOf { it.date }
+        val names = grouped.keys.map { it.first }.distinct()
+        val parsedRows = names.map { name ->
+            val history = grouped.filterKeys { it.first == name }.values.sortedBy { it.date }
+            val current = history.lastOrNull { it.date == selectedDate }
             val previous = history.filter { it.date.isBefore(selectedDate) }.maxByOrNull { it.date }
-            val meta = metadata.getValue(key)
+            val meta = metadata[name] ?: Triple(name, "", "கிலோ")
             PriceRow(
-                tamil = meta.first,
-                english = meta.second,
-                unit = meta.third,
-                low = current?.low?.let(::format),
-                high = current?.high?.let(::format),
-                previousLow = previous?.low?.let(::format),
-                previousHigh = previous?.high?.let(::format),
+                tamil = meta.first, english = meta.second, unit = meta.third,
+                low = current?.low?.let(::format), high = current?.high?.let(::format),
+                previousLow = previous?.low?.let(::format), previousHigh = previous?.high?.let(::format),
                 history = history
             )
         }.sortedWith(compareBy<PriceRow> { tamilItemOrderIndex[it.tamil] ?: Int.MAX_VALUE }.thenBy { it.tamil })
