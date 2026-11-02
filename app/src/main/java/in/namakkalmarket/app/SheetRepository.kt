@@ -87,7 +87,7 @@ private val tamilItemOrder = listOf(
 )
 private val tamilItemOrderIndex = tamilItemOrder.withIndex().associate { it.value to it.index }
 
-class SheetRepository(context: Context) {
+class SheetRepository(private val context: Context) {
     private val prefs = context.getSharedPreferences("market_cache", Context.MODE_PRIVATE)
     private val client = OkHttpClient.Builder().followRedirects(true).followSslRedirects(true).build()
 
