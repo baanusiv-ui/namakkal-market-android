@@ -132,7 +132,7 @@ private fun MarketScreen() {
                 dateLabel = result.date.format(java.time.format.DateTimeFormatter.ofPattern("dd-MM-yyyy"))
                 status = if (result.fallback) "கடைசியாக கிடைத்த விலைத் தேதி" else "இன்றைய விலைத் தகவல்"
             } catch (e: Exception) {
-                status = "Supabase விலைத் தரவைப் பெற முடியவில்லை: ${e.message ?: "மீண்டும் முயற்சிக்கவும்"}"
+                status = "WhatsApp விலைத் தரவைப் பெற முடியவில்லை: ${e.message ?: "மீண்டும் முயற்சிக்கவும்"}"
                 rows = repo.cachedRows()
                 dateLabel = repo.cachedDate()
             } finally { loading = false }
